@@ -6,7 +6,6 @@ import { LeadWithDetails } from '@/lib/types';
 
 // Force dynamic rendering - don't prerender this page
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 function DashboardContent() {
   const router = useRouter();
