@@ -43,6 +43,7 @@ export default function NewLeadPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           customerName: step1Data.name,
           customerPhone: step1Data.phone,

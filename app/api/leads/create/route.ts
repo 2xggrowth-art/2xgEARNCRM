@@ -69,30 +69,84 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create lead
-    const { data: lead, error } = await supabaseAdmin
-      .from('leads')
-      .insert({
-        organization_id: organizationId,
-        sales_rep_id: userId,
-        customer_name: customerName.trim(),
-        customer_phone: customerPhone,
-        category_id: categoryId,
-        deal_size: parseFloat(dealSize),
-        model_name: modelName.trim(),
-        purchase_timeline: purchaseTimeline,
-        not_today_reason: purchaseTimeline !== 'today' ? notTodayReason : null,
-      })
-      .select()
-      .single();
+    // Find or create the model
+    let modelId: string;
 
-    if (error) {
-      console.error('Error creating lead:', error);
+    // Check if model exists in the selected category
+    const { data: existingModel, error: modelCheckError } = await supabaseAdmin
+      .from('models')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('category_id', categoryId)
+      .eq('name', modelName.trim())
+      .maybeSingle();
+
+    if (modelCheckError) {
+      console.error('Error checking model:', modelCheckError);
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'Failed to create lead' },
+        { success: false, error: `Model check failed: ${modelCheckError.message}` },
         { status: 500 }
       );
     }
+
+    if (existingModel) {
+      modelId = existingModel.id;
+      console.log('Using existing model:', modelId);
+    } else {
+      // Create new model
+      const { data: newModel, error: modelError } = await supabaseAdmin
+        .from('models')
+        .insert({
+          organization_id: organizationId,
+          category_id: categoryId,
+          name: modelName.trim(),
+        })
+        .select('id')
+        .maybeSingle();
+
+      if (modelError || !newModel) {
+        console.error('Error creating model:', modelError);
+        return NextResponse.json<APIResponse>(
+          { success: false, error: `Failed to create model: ${modelError?.message || 'Unknown error'}` },
+          { status: 500 }
+        );
+      }
+
+      modelId = newModel.id;
+      console.log('Created new model:', modelId);
+    }
+
+    // Create lead - use upsert to avoid conflicts
+    const leadData = {
+      organization_id: organizationId,
+      sales_rep_id: userId,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone,
+      category_id: categoryId,
+      model_id: modelId,
+      deal_size: parseFloat(dealSize),
+      purchase_timeline: purchaseTimeline,
+      not_today_reason: purchaseTimeline !== 'today' ? notTodayReason : null,
+    };
+
+    console.log('Creating lead with data:', leadData);
+
+    const { data: lead, error } = await supabaseAdmin
+      .from('leads')
+      .insert(leadData)
+      .select()
+      .maybeSingle();
+
+    if (error || !lead) {
+      console.error('Error creating lead:', error);
+      console.error('Lead data attempted:', leadData);
+      return NextResponse.json<APIResponse>(
+        { success: false, error: `Failed to create lead: ${error?.message || 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
+
+    console.log('Lead created successfully:', lead.id);
 
     // Trigger WhatsApp message in background (don't wait for it)
     fetch(`${request.nextUrl.origin}/api/whatsapp/send-message`, {

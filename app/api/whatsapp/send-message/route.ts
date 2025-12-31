@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
       .select(`
         *,
         organizations (*),
-        categories (name)
+        categories (name),
+        models (name)
       `)
       .eq('id', leadId)
       .single();
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     const url = `https://graph.facebook.com/v18.0/${organization.whatsapp_phone_number_id}/messages`;
 
     const categoryName = lead.categories?.name || 'our product';
+    const modelName = lead.models?.name || 'the model';
     const contactNumber = organization.contact_number || 'us';
 
     // Meta WhatsApp Cloud API request
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
               type: 'body',
               parameters: [
                 { type: 'text', text: categoryName },
-                { type: 'text', text: lead.model_name },
+                { type: 'text', text: modelName },
                 { type: 'text', text: lead.deal_size.toString() },
                 { type: 'text', text: contactNumber },
               ],

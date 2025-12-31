@@ -45,6 +45,7 @@ export default function AdminTeamPage() {
       const response = await fetch('/api/admin/team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: newMemberName,
           phone: newMemberPhone,
