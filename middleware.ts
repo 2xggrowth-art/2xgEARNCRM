@@ -4,11 +4,10 @@ import type { NextRequest } from 'next/server';
 // Define public routes that don't require authentication
 const publicRoutes = [
   '/login',
-  '/api',
+  '/api/auth/request-otp',
+  '/api/auth/verify-otp',
+  '/api/auth/register',
   '/',
-  '/admin',
-  '/dashboard',
-  '/lead'
 ];
 
 export function middleware(request: NextRequest) {
@@ -30,11 +29,9 @@ export function middleware(request: NextRequest) {
 
   // Check for authentication token in cookies
   const token = request.cookies.get('auth_token')?.value;
+  const userCookie = request.cookies.get('user')?.value;
 
-  // Also check localStorage user data (passed via cookie)
-  const hasUser = request.cookies.get('user')?.value;
-
-  if (!token && !hasUser) {
+  if (!token || !userCookie) {
     // Redirect to login if accessing protected page routes
     if (!pathname.startsWith('/api')) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -47,9 +44,31 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  // For now, just allow through if token exists
-  // Token verification will happen in API routes
-  return NextResponse.next();
+  // Parse user data from cookie and add to headers for API routes
+  try {
+    const user = JSON.parse(userCookie);
+
+    // Create a new request with user context headers
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', user.id);
+    requestHeaders.set('x-user-role', user.role);
+    requestHeaders.set('x-organization-id', user.organizationId);
+
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  } catch (error) {
+    // Invalid user cookie - redirect to login
+    if (!pathname.startsWith('/api')) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    return NextResponse.json(
+      { success: false, error: 'Invalid session' },
+      { status: 401 }
+    );
+  }
 }
 
 export const config = {

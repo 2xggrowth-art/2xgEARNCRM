@@ -2,18 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isValidPhone, isValidName, generateOTP, getOTPExpiry } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
-import { getDevOrganizationId } from '@/lib/dev-helpers';
+import { sendSMS, formatInviteMessage } from '@/lib/sms';
 
 // Get all team members
 export async function GET(request: NextRequest) {
   try {
-    // For development: get organization ID from database
-    const organizationId = await getDevOrganizationId();
+    const organizationId = request.headers.get('x-organization-id');
+    const userRole = request.headers.get('x-user-role');
 
-    if (!organizationId) {
+    if (!organizationId || userRole !== 'admin') {
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'No organization found' },
-        { status: 404 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
@@ -47,13 +47,13 @@ export async function GET(request: NextRequest) {
 // Add new team member (send invite OTP)
 export async function POST(request: NextRequest) {
   try {
-    // For development: get organization ID from database
-    const organizationId = await getDevOrganizationId();
+    const organizationId = request.headers.get('x-organization-id');
+    const userRole = request.headers.get('x-user-role');
 
-    if (!organizationId) {
+    if (!organizationId || userRole !== 'admin') {
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'No organization found' },
-        { status: 404 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
@@ -120,8 +120,13 @@ export async function POST(request: NextRequest) {
       verified: false,
     });
 
-    // TODO: Send SMS with OTP to the new user
-    console.log(`OTP for ${phone}: ${otp}`);
+    // Send SMS with OTP to the new user
+    const smsResult = await sendSMS(phone, formatInviteMessage(name, otp));
+
+    if (!smsResult.success) {
+      console.error('SMS sending failed:', smsResult.error);
+      // Don't fail the request - admin can share OTP manually
+    }
 
     return NextResponse.json<APIResponse>({
       success: true,

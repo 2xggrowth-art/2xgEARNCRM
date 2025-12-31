@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateOTP, getOTPExpiry, isValidPhone } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
+import { sendSMS, formatOTPMessage } from '@/lib/sms';
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,12 +54,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Send OTP via SMS provider (Twilio, MSG91, etc.)
-    // For development, log the OTP to console
-    console.log(`OTP for ${phone}: ${otp}`);
+    // Send OTP via SMS
+    const smsResult = await sendSMS(phone, formatOTPMessage(otp));
 
-    // In production, uncomment and implement SMS sending:
-    // await sendSMS(phone, `Your Lead CRM OTP is: ${otp}. Valid for 5 minutes.`);
+    if (!smsResult.success) {
+      console.error('SMS sending failed:', smsResult.error);
+      // Don't fail the request - still allow OTP to be used
+    }
 
     return NextResponse.json<APIResponse>({
       success: true,

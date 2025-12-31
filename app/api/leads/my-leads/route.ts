@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
-import { getDevUserId } from '@/lib/dev-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    // For development: get user ID from database
-    const userId = await getDevUserId();
+    const userId = request.headers.get('x-user-id');
 
     if (!userId) {
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'No user found' },
-        { status: 404 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 

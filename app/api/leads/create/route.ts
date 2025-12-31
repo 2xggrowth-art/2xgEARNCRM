@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
-import { getDevOrganizationId, getDevUserId } from '@/lib/dev-helpers';
 
 export async function POST(request: NextRequest) {
   try {
-    // For development: get organization and user ID from database
-    const organizationId = await getDevOrganizationId();
-    const userId = await getDevUserId();
+    const organizationId = request.headers.get('x-organization-id');
+    const userId = request.headers.get('x-user-id');
 
     if (!organizationId || !userId) {
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'No organization or user found' },
-        { status: 404 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 

@@ -6,7 +6,7 @@ import { APIResponse } from '@/lib/types';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phone, name, organizationId, organizationName } = body;
+    const { phone, name, organizationName } = body;
 
     // Validate inputs
     if (!phone || !isValidPhone(phone)) {
@@ -37,80 +37,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let finalOrganizationId = organizationId;
-    let userRole: 'admin' | 'sales_rep' = 'sales_rep';
+    // Check if any organizations exist
+    const { count: orgCount } = await supabaseAdmin
+      .from('organizations')
+      .select('*', { count: 'exact', head: true });
 
-    // If no organization exists, create one and make this user an admin
-    if (!organizationId) {
-      if (!organizationName) {
-        return NextResponse.json<APIResponse>(
-          { success: false, error: 'Organization name is required for first user' },
-          { status: 400 }
-        );
-      }
-
-      // Check if any organizations exist
-      const { count } = await supabaseAdmin
-        .from('organizations')
-        .select('*', { count: 'exact', head: true });
-
-      // Create new organization
-      const { data: newOrg, error: orgError } = await supabaseAdmin
-        .from('organizations')
-        .insert({ name: organizationName })
-        .select()
-        .single();
-
-      if (orgError || !newOrg) {
-        console.error('Error creating organization:', orgError);
-        return NextResponse.json<APIResponse>(
-          { success: false, error: 'Failed to create organization' },
-          { status: 500 }
-        );
-      }
-
-      finalOrganizationId = newOrg.id;
-      userRole = 'admin';
-
-      // Create default categories for the new organization
-      const defaultCategories = [
-        'Electric',
-        'Geared',
-        'Premium Geared',
-        'Single Speed',
-        'Kids',
-      ];
-
-      const categoriesData = defaultCategories.map((categoryName) => ({
-        organization_id: newOrg.id,
-        name: categoryName,
-      }));
-
-      await supabaseAdmin.from('categories').insert(categoriesData);
-    } else {
-      // Verify the organization exists
-      const { data: org, error: orgError } = await supabaseAdmin
-        .from('organizations')
-        .select('id')
-        .eq('id', organizationId)
-        .single();
-
-      if (orgError || !org) {
-        return NextResponse.json<APIResponse>(
-          { success: false, error: 'Invalid organization' },
-          { status: 400 }
-        );
-      }
+    // Only allow registration if this is the FIRST organization (initial setup)
+    if (orgCount && orgCount > 0) {
+      return NextResponse.json<APIResponse>(
+        {
+          success: false,
+          error: 'Registration is closed. Please contact your administrator to create an account.',
+        },
+        { status: 403 }
+      );
     }
 
-    // Create user
+    // This is the first organization - allow registration
+    if (!organizationName) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Organization name is required' },
+        { status: 400 }
+      );
+    }
+
+    // Create new organization
+    const { data: newOrg, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .insert({ name: organizationName })
+      .select()
+      .single();
+
+    if (orgError || !newOrg) {
+      console.error('Error creating organization:', orgError);
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Failed to create organization' },
+        { status: 500 }
+      );
+    }
+
+    // Create default categories for the new organization
+    const defaultCategories = [
+      'Electric',
+      'Geared',
+      'Premium Geared',
+      'Single Speed',
+      'Kids',
+    ];
+
+    const categoriesData = defaultCategories.map((categoryName) => ({
+      organization_id: newOrg.id,
+      name: categoryName,
+    }));
+
+    await supabaseAdmin.from('categories').insert(categoriesData);
+
+    // Create admin user
     const { data: newUser, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
         phone,
         name,
-        role: userRole,
-        organization_id: finalOrganizationId,
+        role: 'admin',
+        organization_id: newOrg.id,
         last_login: new Date().toISOString(),
       })
       .select()
