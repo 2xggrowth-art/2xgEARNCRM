@@ -21,9 +21,9 @@ export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
         <p className="text-gray-600 text-lg">Thank you for choosing us!</p>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-lg mb-4 border-2 border-gray-100">
+      <div className="bg-white p-6 rounded-xl shadow-lg mb-6 border-2 border-gray-100">
         <Image
-          src="/download.svg"
+          src="/download.png"
           alt="QR Code"
           width={200}
           height={200}
@@ -31,10 +31,6 @@ export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
           priority
         />
       </div>
-
-      <p className="text-xs text-orange-600 mb-2 font-medium">
-        ⚠️ Replace /public/download.svg with your QR code
-      </p>
 
       <p className="text-sm text-gray-600 mb-6 max-w-xs">
         Scan the QR code to leave us a review or follow us on social media!
