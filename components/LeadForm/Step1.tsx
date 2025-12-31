@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Step1Data } from '@/lib/types';
+import { Step1Data, LeadStatus } from '@/lib/types';
 
 interface Step1Props {
   initialData?: Partial<Step1Data>;
@@ -11,6 +11,7 @@ interface Step1Props {
 export default function Step1({ initialData, onNext }: Step1Props) {
   const [name, setName] = useState(initialData?.name || '');
   const [phone, setPhone] = useState(initialData?.phone || '');
+  const [status, setStatus] = useState<LeadStatus>(initialData?.status || 'lost');
   const [errors, setErrors] = useState({ name: '', phone: '' });
 
   const validate = (): boolean => {
@@ -31,13 +32,15 @@ export default function Step1({ initialData, onNext }: Step1Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      onNext({ name: name.trim(), phone });
+      onNext({ name: name.trim(), phone, status });
     }
   };
 
+  const totalSteps = status === 'win' ? 3 : 4;
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full p-6">
-      <div className="mb-2 text-sm text-gray-500">Step 1/4</div>
+      <div className="mb-2 text-sm text-gray-500">Step 1/{totalSteps}</div>
       <h2 className="text-2xl font-bold mb-6">Customer Details</h2>
 
       <div className="mb-4">
@@ -74,6 +77,36 @@ export default function Step1({ initialData, onNext }: Step1Props) {
         {errors.phone && (
           <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
         )}
+      </div>
+
+      <div className="mb-6">
+        <label className="block text-gray-700 font-semibold mb-3">
+          Lead Status:
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setStatus('win')}
+            className={`py-4 px-6 rounded-lg text-lg font-semibold border-2 transition-all ${
+              status === 'win'
+                ? 'bg-green-600 text-white border-green-600 shadow-lg'
+                : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
+            }`}
+          >
+            ✓ WIN
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatus('lost')}
+            className={`py-4 px-6 rounded-lg text-lg font-semibold border-2 transition-all ${
+              status === 'lost'
+                ? 'bg-red-600 text-white border-red-600 shadow-lg'
+                : 'bg-white text-gray-700 border-gray-300 hover:border-red-400'
+            }`}
+          >
+            ✗ LOST
+          </button>
+        </div>
       </div>
 
       <button

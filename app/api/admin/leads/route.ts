@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
         categories (
           name
         ),
+        models (
+          name
+        ),
         users!sales_rep_id (
           id,
           name
@@ -42,8 +45,10 @@ export async function GET(request: NextRequest) {
     const transformedLeads = leads.map((lead: any) => ({
       ...lead,
       category_name: lead.categories?.name || 'Unknown',
+      model_name: lead.models?.name || (lead.status === 'win' ? 'N/A' : 'Unknown'),
       sales_rep_name: lead.users?.name || 'Unknown',
       categories: undefined,
+      models: undefined,
       users: undefined,
     }));
 

@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { LostStep3Data } from '@/lib/types';
 
-interface Step3Props {
+interface LostStep3Props {
   initialData?: Partial<LostStep3Data>;
   onNext: (data: LostStep3Data) => void;
   onBack: () => void;
 }
 
-export default function Step3({ initialData, onNext, onBack }: Step3Props) {
+export default function LostStep3({ initialData, onNext, onBack }: LostStep3Props) {
   const [dealSize, setDealSize] = useState(
     initialData?.dealSize?.toString() || ''
   );

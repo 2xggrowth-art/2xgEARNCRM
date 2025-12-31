@@ -19,10 +19,13 @@ export async function GET(request: NextRequest) {
         *,
         categories (
           name
+        ),
+        models (
+          name
         )
       `)
       .eq('sales_rep_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false});
 
     if (error) {
       console.error('Error fetching leads:', error);
@@ -36,7 +39,9 @@ export async function GET(request: NextRequest) {
     const transformedLeads = leads.map((lead: any) => ({
       ...lead,
       category_name: lead.categories?.name || 'Unknown',
+      model_name: lead.models?.name || (lead.status === 'win' ? 'N/A' : 'Unknown'),
       categories: undefined, // Remove nested object
+      models: undefined,
     }));
 
     return NextResponse.json<APIResponse>({

@@ -133,65 +133,85 @@ function DashboardContent() {
             </div>
           ) : (
             <div className="divide-y">
-              {leads.map((lead) => (
-                <div key={lead.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{lead.customer_name}</h3>
-                      <p className="text-gray-600">{lead.customer_phone}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-blue-600 font-semibold">
-                        ₹{lead.deal_size.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
+              {leads.map((lead) => {
+                const isWin = lead.status === 'win';
+                const cardClass = isWin ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500';
 
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-500">Category: </span>
-                      <span className="text-gray-900">{lead.category_name}</span>
+                return (
+                  <div key={lead.id} className={`p-4 hover:opacity-90 ${cardClass}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-gray-900">{lead.customer_name}</h3>
+                          {isWin ? (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                              ✓ Win
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
+                              ✗ Lost
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600">{lead.customer_phone}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-semibold ${isWin ? 'text-green-600' : 'text-blue-600'}`}>
+                          ₹{(isWin ? (lead.sale_price || 0) : (lead.deal_size || 0)).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Model: </span>
-                      <span className="text-gray-900">{lead.model_name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Timeline: </span>
-                      <span className="text-gray-900">
-                        {lead.purchase_timeline === 'today'
-                          ? 'Today'
-                          : lead.purchase_timeline === '3_days'
-                          ? '3 Days'
-                          : lead.purchase_timeline === '7_days'
-                          ? '7 Days'
-                          : '30 Days'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Created: </span>
-                      <span className="text-gray-900">
-                        {new Date(lead.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
 
-                  {lead.not_today_reason && (
-                    <div className="mt-2 text-sm">
-                      <span className="text-gray-500">Reason: </span>
-                      <span className="text-gray-900">
-                        {lead.not_today_reason === 'need_family_approval'
-                          ? 'Need family approval'
-                          : lead.not_today_reason === 'price_high'
-                          ? 'Price too high'
-                          : lead.not_today_reason === 'want_more_options'
-                          ? 'Want more options'
-                          : 'Just browsing'}
-                      </span>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-500">Category: </span>
+                        <span className="text-gray-900">{lead.category_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">{isWin ? 'Invoice' : 'Model'}: </span>
+                        <span className="text-gray-900">
+                          {isWin ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Timeline: </span>
+                        <span className="text-gray-900">
+                          {isWin ? 'Completed' : (
+                            lead.purchase_timeline === 'today'
+                              ? 'Today'
+                              : lead.purchase_timeline === '3_days'
+                              ? '3 Days'
+                              : lead.purchase_timeline === '7_days'
+                              ? '7 Days'
+                              : '30 Days'
+                          )}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Created: </span>
+                        <span className="text-gray-900">
+                          {new Date(lead.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {!isWin && lead.not_today_reason && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-gray-500">Reason: </span>
+                        <span className="text-gray-900">
+                          {lead.not_today_reason === 'need_family_approval'
+                            ? 'Need family approval'
+                            : lead.not_today_reason === 'price_high'
+                            ? 'Price too high'
+                            : lead.not_today_reason === 'want_more_options'
+                            ? 'Want more options'
+                            : 'Just browsing'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

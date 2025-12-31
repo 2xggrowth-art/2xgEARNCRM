@@ -103,15 +103,16 @@ export default function AdminDashboardPage() {
   };
 
   const exportToCSV = (rep: SalesRepData) => {
-    const headers = ['Customer Name', 'Phone', 'Category', 'Model', 'Deal Size', 'Timeline', 'Reason', 'Date'];
+    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Date'];
     const rows = rep.leads.map((lead) => [
       lead.customer_name,
       lead.customer_phone,
+      lead.status?.toUpperCase() || 'UNKNOWN',
       lead.category_name || '',
-      lead.model_name,
-      lead.deal_size,
-      lead.purchase_timeline,
-      lead.not_today_reason || '',
+      lead.status === 'win' ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown'),
+      lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0),
+      lead.status === 'win' ? 'Completed' : (lead.purchase_timeline || 'Unknown'),
+      lead.status === 'win' ? '' : (lead.not_today_reason || ''),
       new Date(lead.created_at).toLocaleDateString('en-IN'),
     ]);
 
@@ -246,13 +247,16 @@ export default function AdminDashboardPage() {
                             Phone
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Status
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Category
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                            Model
+                            Model/Invoice
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                            Deal Size
+                            Amount
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Timeline
@@ -263,21 +267,41 @@ export default function AdminDashboardPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rep.leads.map((lead) => (
-                          <tr key={lead.id} className="border-t hover:bg-gray-50">
-                            <td className="px-4 py-3">{lead.customer_name}</td>
-                            <td className="px-4 py-3">{lead.customer_phone}</td>
-                            <td className="px-4 py-3">{lead.category_name}</td>
-                            <td className="px-4 py-3">{lead.model_name}</td>
-                            <td className="px-4 py-3 font-semibold text-blue-600">
-                              ₹{lead.deal_size.toLocaleString('en-IN')}
-                            </td>
-                            <td className="px-4 py-3">{lead.purchase_timeline}</td>
-                            <td className="px-4 py-3 text-gray-500">
-                              {formatDate(lead.created_at)}
-                            </td>
-                          </tr>
-                        ))}
+                        {rep.leads.map((lead) => {
+                          const isWin = lead.status === 'win';
+                          const rowClass = isWin ? 'bg-green-50' : 'bg-red-50';
+
+                          return (
+                            <tr key={lead.id} className={`border-t hover:opacity-90 ${rowClass}`}>
+                              <td className="px-4 py-3">{lead.customer_name}</td>
+                              <td className="px-4 py-3">{lead.customer_phone}</td>
+                              <td className="px-4 py-3">
+                                {isWin ? (
+                                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                                    ✓ Win
+                                  </span>
+                                ) : (
+                                  <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
+                                    ✗ Lost
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">{lead.category_name}</td>
+                              <td className="px-4 py-3">
+                                {isWin ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown')}
+                              </td>
+                              <td className={`px-4 py-3 font-semibold ${isWin ? 'text-green-600' : 'text-blue-600'}`}>
+                                ₹{(isWin ? (lead.sale_price || 0) : (lead.deal_size || 0)).toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-4 py-3">
+                                {isWin ? 'Completed' : (lead.purchase_timeline || 'Unknown')}
+                              </td>
+                              <td className="px-4 py-3 text-gray-500">
+                                {formatDate(lead.created_at)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

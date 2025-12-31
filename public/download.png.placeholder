@@ -1,0 +1,18 @@
+PLACEHOLDER - Replace this file with actual QR code
+
+Since I cannot generate images directly, please:
+
+1. Create a QR code (200x200px minimum) pointing to your review/social media page
+2. Save it as "download.png" in the /public/ folder
+3. Delete this placeholder file
+
+Temporary solution:
+- The app will display an error if this file doesn't exist as download.png
+- You can use https://www.qr-code-generator.com/ to create your QR code
+- Compress the image to <100KB for fast loading
+
+Example QR code destinations:
+- Google Reviews link
+- Instagram profile
+- Facebook page
+- WhatsApp business number

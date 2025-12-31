@@ -1,6 +1,8 @@
 // Database types
 export type UserRole = 'admin' | 'sales_rep';
 
+export type LeadStatus = 'win' | 'lost';
+
 export type PurchaseTimeline = 'today' | '3_days' | '7_days' | '30_days';
 
 export type NotTodayReason =
@@ -42,11 +44,19 @@ export interface Lead {
   sales_rep_id: string;
   customer_name: string;
   customer_phone: string;
+  status: LeadStatus;
   category_id: string;
-  deal_size: number;
-  model_name: string;
-  purchase_timeline: PurchaseTimeline;
-  not_today_reason: NotTodayReason | null;
+
+  // Win-specific fields
+  invoice_no?: string | null;
+  sale_price?: number | null;
+
+  // Lost-specific fields
+  deal_size?: number | null;
+  model_id?: string | null;
+  purchase_timeline?: PurchaseTimeline | null;
+  not_today_reason?: NotTodayReason | null;
+
   whatsapp_sent: boolean;
   whatsapp_sent_at: string | null;
   created_at: string;
@@ -56,6 +66,13 @@ export interface Lead {
 export interface LeadWithDetails extends Lead {
   category_name?: string;
   sales_rep_name?: string;
+  model_name?: string; // From models join
+  models?: {
+    name: string;
+  };
+  categories?: {
+    name: string;
+  };
 }
 
 export interface OTPVerification {
@@ -87,22 +104,49 @@ export interface APIResponse<T = any> {
 export interface Step1Data {
   name: string;
   phone: string;
+  status: LeadStatus;
 }
 
 export interface Step2Data {
   categoryId: string;
 }
 
-export interface Step3Data {
+// Win flow - Step 3 data
+export interface WinStep3Data {
+  invoiceNo: string;
+  salePrice: number;
+}
+
+// Lost flow - Step 3 data
+export interface LostStep3Data {
   dealSize: number;
   modelName: string;
 }
 
-export interface Step4Data {
+// Lost flow - Step 4 data
+export interface LostStep4Data {
   purchaseTimeline: PurchaseTimeline;
   notTodayReason?: NotTodayReason;
 }
 
-export interface LeadFormData extends Step1Data, Step3Data, Step4Data {
+// Legacy types for backward compatibility
+export type Step3Data = WinStep3Data | LostStep3Data;
+export type Step4Data = LostStep4Data;
+
+export interface LeadFormData {
+  // Common fields
+  customerName: string;
+  customerPhone: string;
   categoryId: string;
+  status: LeadStatus;
+
+  // Win-specific fields
+  invoiceNo?: string;
+  salePrice?: number;
+
+  // Lost-specific fields
+  dealSize?: number;
+  modelName?: string;
+  purchase_timeline?: PurchaseTimeline;
+  notTodayReason?: NotTodayReason;
 }
