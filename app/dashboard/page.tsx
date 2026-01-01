@@ -7,14 +7,21 @@ import { LeadWithDetails } from '@/lib/types';
 // Force dynamic rendering - don't prerender this page
 export const dynamic = 'force-dynamic';
 
+type FilterStatus = 'all' | 'win' | 'lost';
+type SortBy = 'date' | 'amount' | 'name';
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [leads, setLeads] = useState<LeadWithDetails[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<LeadWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('date');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     // Check if redirected with success
@@ -60,6 +67,41 @@ function DashboardContent() {
       console.error('Error fetching organization logo:', error);
     }
   };
+
+  // Filter and sort leads whenever leads, filterStatus, sortBy, or searchQuery changes
+  useEffect(() => {
+    let result = [...leads];
+
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      result = result.filter(lead => lead.status === filterStatus);
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(lead =>
+        lead.customer_name.toLowerCase().includes(query) ||
+        lead.customer_phone.includes(query)
+      );
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      if (sortBy === 'date') {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      } else if (sortBy === 'amount') {
+        const amountA = a.status === 'win' ? (a.sale_price || 0) : (a.deal_size || 0);
+        const amountB = b.status === 'win' ? (b.sale_price || 0) : (b.deal_size || 0);
+        return amountB - amountA;
+      } else if (sortBy === 'name') {
+        return a.customer_name.localeCompare(b.customer_name);
+      }
+      return 0;
+    });
+
+    setFilteredLeads(result);
+  }, [leads, filterStatus, sortBy, searchQuery]);
 
   const handleLogout = () => {
     document.cookie = 'auth_token=; path=/; max-age=0';
@@ -118,64 +160,115 @@ function DashboardContent() {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <button
           onClick={() => router.push('/lead/new')}
-          className="w-full bg-blue-600 text-white rounded-lg py-4 px-6 font-semibold text-lg hover:bg-blue-700 shadow-lg"
+          className="w-full bg-blue-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-blue-700 shadow-md"
         >
           + Create New Lead
         </button>
       </div>
 
-      {/* Leads List */}
+      {/* Filters and Search */}
+      <div className="max-w-7xl mx-auto px-4 pb-4">
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Search */}
+            <div>
+              <input
+                type="text"
+                placeholder="Search name or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Filter by Status */}
+            <div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="win">✓ Win Only</option>
+                <option value="lost">✗ Lost Only</option>
+              </select>
+            </div>
+
+            {/* Sort By */}
+            <div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="date">Sort: Newest First</option>
+                <option value="amount">Sort: Highest Amount</option>
+                <option value="name">Sort: Name A-Z</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Results count */}
+          <div className="mt-3 text-sm text-gray-600">
+            Showing {filteredLeads.length} of {leads.length} leads
+          </div>
+        </div>
+      </div>
+
+      {/* Leads Table */}
       <div className="max-w-7xl mx-auto px-4 pb-6">
-        <div className="bg-white rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {leads.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               No leads yet. Create your first lead!
             </div>
+          ) : filteredLeads.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No leads match your filters
+            </div>
           ) : (
-            <div className="divide-y">
-              {leads.map((lead) => {
-                const isWin = lead.status === 'win';
-                const cardClass = isWin ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500';
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b sticky top-0">
+                  <tr>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Status</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Customer</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Phone</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Category</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Invoice/Model</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-700">Amount</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Timeline</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredLeads.map((lead) => {
+                    const isWin = lead.status === 'win';
+                    const borderClass = isWin ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500';
 
-                return (
-                  <div key={lead.id} className={`p-4 hover:opacity-90 ${cardClass}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">{lead.customer_name}</h3>
+                    return (
+                      <tr key={lead.id} className={`hover:bg-gray-50 ${borderClass}`}>
+                        <td className="px-3 py-3">
                           {isWin ? (
-                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold whitespace-nowrap">
                               ✓ Win
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
+                            <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold whitespace-nowrap">
                               ✗ Lost
                             </span>
                           )}
-                        </div>
-                        <p className="text-gray-600">{lead.customer_phone}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-semibold ${isWin ? 'text-green-600' : 'text-blue-600'}`}>
-                          ₹{(isWin ? (lead.sale_price || 0) : (lead.deal_size || 0)).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-gray-500">Category: </span>
-                        <span className="text-gray-900">{lead.category_name}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">{isWin ? 'Invoice' : 'Model'}: </span>
-                        <span className="text-gray-900">
+                        </td>
+                        <td className="px-3 py-3 text-gray-900 font-medium">{lead.customer_name}</td>
+                        <td className="px-3 py-3 text-gray-700">{lead.customer_phone}</td>
+                        <td className="px-3 py-3 text-gray-700">{lead.category_name}</td>
+                        <td className="px-3 py-3 text-gray-700">
                           {isWin ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown')}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Timeline: </span>
-                        <span className="text-gray-900">
+                        </td>
+                        <td className={`px-3 py-3 text-right font-semibold ${isWin ? 'text-green-600' : 'text-blue-600'}`}>
+                          ₹{(isWin ? (lead.sale_price || 0) : (lead.deal_size || 0)).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">
                           {isWin ? 'Completed' : (
                             lead.purchase_timeline === 'today'
                               ? 'Today'
@@ -185,33 +278,15 @@ function DashboardContent() {
                               ? '7 Days'
                               : '30 Days'
                           )}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Created: </span>
-                        <span className="text-gray-900">
-                          {new Date(lead.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {!isWin && lead.not_today_reason && (
-                      <div className="mt-2 text-sm">
-                        <span className="text-gray-500">Reason: </span>
-                        <span className="text-gray-900">
-                          {lead.not_today_reason === 'need_family_approval'
-                            ? 'Need family approval'
-                            : lead.not_today_reason === 'price_high'
-                            ? 'Price too high'
-                            : lead.not_today_reason === 'want_more_options'
-                            ? 'Want more options'
-                            : 'Just browsing'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                        </td>
+                        <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
+                          {new Date(lead.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

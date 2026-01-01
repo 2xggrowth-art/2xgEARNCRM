@@ -7,6 +7,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LeadWithDetails } from '@/lib/types';
 
+type FilterStatus = 'all' | 'win' | 'lost';
+type SortBy = 'date' | 'amount' | 'name';
+
 interface SalesRepData {
   id: string;
   name: string;
@@ -18,9 +21,14 @@ interface SalesRepData {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [salesReps, setSalesReps] = useState<SalesRepData[]>([]);
+  const [filteredSalesReps, setFilteredSalesReps] = useState<SalesRepData[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [logoUrl, setLogoUrl] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterRep, setFilterRep] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('date');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -163,6 +171,59 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Filter and sort sales reps whenever state changes
+  useEffect(() => {
+    let result = salesReps.map(rep => {
+      let filteredLeads = [...rep.leads];
+
+      // Apply status filter
+      if (filterStatus !== 'all') {
+        filteredLeads = filteredLeads.filter(lead => lead.status === filterStatus);
+      }
+
+      // Apply search filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        filteredLeads = filteredLeads.filter(lead =>
+          lead.customer_name.toLowerCase().includes(query) ||
+          lead.customer_phone.includes(query) ||
+          (lead.invoice_no && lead.invoice_no.toLowerCase().includes(query)) ||
+          (lead.model_name && lead.model_name.toLowerCase().includes(query))
+        );
+      }
+
+      // Apply sorting
+      filteredLeads.sort((a, b) => {
+        if (sortBy === 'date') {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        } else if (sortBy === 'amount') {
+          const amountA = a.status === 'win' ? (a.sale_price || 0) : (a.deal_size || 0);
+          const amountB = b.status === 'win' ? (b.sale_price || 0) : (b.deal_size || 0);
+          return amountB - amountA;
+        } else if (sortBy === 'name') {
+          return a.customer_name.localeCompare(b.customer_name);
+        }
+        return 0;
+      });
+
+      return {
+        ...rep,
+        leads: filteredLeads,
+        totalLeads: filteredLeads.length,
+      };
+    });
+
+    // Apply sales rep filter
+    if (filterRep !== 'all') {
+      result = result.filter(rep => rep.id === filterRep);
+    }
+
+    // Remove reps with no leads after filtering
+    result = result.filter(rep => rep.totalLeads > 0);
+
+    setFilteredSalesReps(result);
+  }, [salesReps, filterStatus, filterRep, sortBy, searchQuery]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -226,8 +287,80 @@ export default function AdminDashboardPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {salesReps.map((rep) => (
+          <>
+            {/* Filters and Search */}
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                {/* Search */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Search customer, phone, invoice..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Filter by Sales Rep */}
+                <div>
+                  <select
+                    value={filterRep}
+                    onChange={(e) => setFilterRep(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Sales Reps</option>
+                    {salesReps.map((rep) => (
+                      <option key={rep.id} value={rep.id}>
+                        {rep.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter by Status */}
+                <div>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="win">✓ Win Only</option>
+                    <option value="lost">✗ Lost Only</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortBy)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="date">Sort: Newest First</option>
+                    <option value="amount">Sort: Highest Amount</option>
+                    <option value="name">Sort: Name A-Z</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Results count */}
+              <div className="mt-3 text-sm text-gray-600">
+                Showing {filteredSalesReps.reduce((sum, rep) => sum + rep.totalLeads, 0)} leads
+                {filterRep !== 'all' && ` from ${filteredSalesReps.find(r => r.id === filterRep)?.name}`}
+                {filterStatus !== 'all' && ` (${filterStatus === 'win' ? 'Win' : 'Lost'} only)`}
+              </div>
+            </div>
+
+            {/* Sales Reps List */}
+            <div className="space-y-3">
+            {filteredSalesReps.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center text-gray-500">
+                No leads match your filters
+              </div>
+            ) : (
+              filteredSalesReps.map((rep) => (
               <div key={rep.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div
                   onClick={() => toggleExpanded(rep.id)}
@@ -346,8 +479,10 @@ export default function AdminDashboardPage() {
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
+          </>
         )}
       </div>
     </div>
