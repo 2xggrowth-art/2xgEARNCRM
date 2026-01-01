@@ -375,7 +375,7 @@ export default function AdminDashboardPage() {
                       ▶
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">{rep.name}</h3>
+                      <h3 className="font-semibold text-lg text-gray-900">{rep.name}</h3>
                       <p className="text-sm text-gray-500">
                         Total Leads: {rep.totalLeads}
                       </p>
