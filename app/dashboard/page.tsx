@@ -70,11 +70,13 @@ function DashboardContent() {
 
   // Filter and sort leads whenever leads, filterStatus, sortBy, or searchQuery changes
   useEffect(() => {
-    let result = [...leads];
+    // Sales reps can only see Lost leads (Win leads are hidden)
+    let result = leads.filter(lead => lead.status === 'lost');
 
-    // Apply status filter
-    if (filterStatus !== 'all') {
-      result = result.filter(lead => lead.status === filterStatus);
+    // Apply status filter (only if filterStatus is explicitly set to 'lost' or 'all')
+    // Note: 'win' filter won't show anything for sales reps
+    if (filterStatus === 'win') {
+      result = []; // Sales reps cannot see Win leads
     }
 
     // Apply search filter
@@ -181,15 +183,14 @@ function DashboardContent() {
               />
             </div>
 
-            {/* Filter by Status */}
+            {/* Filter by Status - Note: Sales reps only see Lost leads */}
             <div>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="all">All Status</option>
-                <option value="win">✓ Win Only</option>
+                <option value="all">All Leads (Lost Only)</option>
                 <option value="lost">✗ Lost Only</option>
               </select>
             </div>
