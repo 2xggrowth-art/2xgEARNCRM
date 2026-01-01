@@ -138,6 +138,31 @@ export default function AdminDashboardPage() {
     });
   };
 
+  const handleDeleteLead = async (leadId: string, customerName: string) => {
+    if (!confirm(`Are you sure you want to delete the lead for ${customerName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh the leads list
+        fetchAllLeads();
+      } else {
+        alert(`Failed to delete lead: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      alert('Failed to delete lead. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -264,6 +289,9 @@ export default function AdminDashboardPage() {
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Date
                           </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -273,8 +301,8 @@ export default function AdminDashboardPage() {
 
                           return (
                             <tr key={lead.id} className={`border-t hover:opacity-90 ${rowClass}`}>
-                              <td className="px-4 py-3">{lead.customer_name}</td>
-                              <td className="px-4 py-3">{lead.customer_phone}</td>
+                              <td className="px-4 py-3 text-gray-900">{lead.customer_name}</td>
+                              <td className="px-4 py-3 text-gray-900">{lead.customer_phone}</td>
                               <td className="px-4 py-3">
                                 {isWin ? (
                                   <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
@@ -286,18 +314,29 @@ export default function AdminDashboardPage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-3">{lead.category_name}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3 text-gray-900">{lead.category_name}</td>
+                              <td className="px-4 py-3 text-gray-900">
                                 {isWin ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown')}
                               </td>
                               <td className={`px-4 py-3 font-semibold ${isWin ? 'text-green-600' : 'text-blue-600'}`}>
                                 ₹{(isWin ? (lead.sale_price || 0) : (lead.deal_size || 0)).toLocaleString('en-IN')}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3 text-gray-900">
                                 {isWin ? 'Completed' : (lead.purchase_timeline || 'Unknown')}
                               </td>
                               <td className="px-4 py-3 text-gray-500">
                                 {formatDate(lead.created_at)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteLead(lead.id, lead.customer_name);
+                                  }}
+                                  className="text-red-600 hover:text-red-800 font-semibold text-sm"
+                                >
+                                  Delete
+                                </button>
                               </td>
                             </tr>
                           );
