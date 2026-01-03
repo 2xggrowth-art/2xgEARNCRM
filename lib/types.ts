@@ -1,5 +1,5 @@
 // Database types
-export type UserRole = 'admin' | 'sales_rep';
+export type UserRole = 'super_admin' | 'manager' | 'staff' | 'sales_rep';
 
 export type LeadStatus = 'win' | 'lost';
 
@@ -28,6 +28,7 @@ export interface User {
   name: string;
   role: UserRole;
   organization_id: string;
+  manager_id?: string | null;
   created_at: string;
   last_login: string | null;
 }
