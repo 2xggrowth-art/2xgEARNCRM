@@ -119,9 +119,10 @@ export default function LoginPage() {
             <Image
               src="/2xg-logo.png"
               alt="2XG EARN Logo"
-              width={200}
-              height={64}
+              width={1345}
+              height={682}
               priority
+              unoptimized
               className="h-16 w-auto"
             />
           </div>
