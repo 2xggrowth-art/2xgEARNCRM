@@ -17,8 +17,10 @@ export default function AdminSettingsPage() {
   const [whatsappPhoneNumberId, setWhatsappPhoneNumberId] = useState('');
   const [whatsappAccessToken, setWhatsappAccessToken] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [googleReviewQrUrl, setGoogleReviewQrUrl] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
 
   useEffect(() => {
     fetchOrganization();
@@ -38,6 +40,7 @@ export default function AdminSettingsPage() {
         setWhatsappPhoneNumberId(org.whatsapp_phone_number_id || '');
         setWhatsappAccessToken(org.whatsapp_access_token || '');
         setLogoUrl(org.logo_url || '');
+        setGoogleReviewQrUrl(org.google_review_qr_url || '');
       }
     } catch (error) {
       console.error('Error fetching organization:', error);
@@ -95,6 +98,42 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('QR code must be less than 2MB');
+      return;
+    }
+
+    setUploadingQr(true);
+
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setGoogleReviewQrUrl(reader.result as string);
+        setUploadingQr(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read file');
+        setUploadingQr(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      alert('Failed to upload QR code');
+      setUploadingQr(false);
+    }
+  };
+
   const handleSaveOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -109,6 +148,7 @@ export default function AdminSettingsPage() {
           whatsappPhoneNumberId,
           whatsappAccessToken,
           logoUrl,
+          googleReviewQrUrl,
         }),
       });
 
@@ -156,6 +196,29 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
+    if (!confirm(`Are you sure you want to delete "${categoryName}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/categories/${categoryId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setCategories(categories.filter((cat) => cat.id !== categoryId));
+        alert('Category deleted successfully');
+      } else {
+        alert(data.error || 'Failed to delete category');
+      }
+    } catch (error) {
+      alert('Network error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -182,7 +245,7 @@ export default function AdminSettingsPage() {
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Organization Settings */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-4">Organization Details</h2>
+          <h2 className="text-lg font-semibold mb-4 text-gray-900">Organization Details</h2>
           <form onSubmit={handleSaveOrganization} className="space-y-4">
             {/* Logo Upload */}
             <div>
@@ -212,6 +275,39 @@ export default function AdminSettingsPage() {
                   </p>
                   {uploadingLogo && (
                     <p className="text-sm text-blue-600 mt-1">Uploading...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Google Review QR Code Upload */}
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">
+                Google Review QR Code
+              </label>
+              <div className="flex items-center gap-4">
+                {googleReviewQrUrl && (
+                  <div className="w-24 h-24 border-2 border-gray-300 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                    <img
+                      src={googleReviewQrUrl}
+                      alt="Google Review QR Code"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleQrUpload}
+                    disabled={uploadingQr}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload your Google Review QR code. This will be shown when a sale is completed.
+                  </p>
+                  {uploadingQr && (
+                    <p className="text-sm text-green-600 mt-1">Uploading...</p>
                   )}
                 </div>
               </div>
@@ -287,7 +383,9 @@ export default function AdminSettingsPage() {
 
         {/* Categories Management */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-4">Product Categories</h2>
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg px-6 py-3 mb-6 shadow-md">
+            <h2 className="text-lg font-semibold text-white">Product Categories</h2>
+          </div>
 
           <div className="mb-4">
             <div className="flex gap-2">
@@ -307,13 +405,22 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {categories.map((category) => (
               <div
                 key={category.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-4 bg-gray-100 rounded-lg border border-gray-300 hover:bg-gray-200 hover:shadow-md transition-all"
               >
-                <span className="font-medium">{category.name}</span>
+                <span className="font-semibold text-gray-800">{category.name}</span>
+                <button
+                  onClick={() => handleDeleteCategory(category.id, category.name)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Delete
+                </button>
               </div>
             ))}
           </div>

@@ -16,6 +16,7 @@ export interface Organization {
   id: string;
   name: string;
   logo_url: string | null;
+  google_review_qr_url: string | null;
   whatsapp_phone_number_id: string | null;
   whatsapp_access_token: string | null;
   created_at: string;

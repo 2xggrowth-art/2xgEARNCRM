@@ -5,9 +5,9 @@ import { APIResponse } from '@/lib/types';
 export async function GET(request: NextRequest) {
   try {
     const organizationId = request.headers.get('x-organization-id');
-    const userRole = request.headers.get('x-user-role');
 
-    if (!organizationId || userRole !== 'admin') {
+    // Allow both admin and sales_rep to read organization data
+    if (!organizationId) {
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, whatsappPhoneNumberId, whatsappAccessToken, contactNumber, logoUrl } = body;
+    const { name, whatsappPhoneNumberId, whatsappAccessToken, contactNumber, logoUrl, googleReviewQrUrl } = body;
 
     const updateData: any = {};
 
@@ -65,6 +65,7 @@ export async function PUT(request: NextRequest) {
     if (whatsappAccessToken !== undefined)
       updateData.whatsapp_access_token = whatsappAccessToken;
     if (logoUrl !== undefined) updateData.logo_url = logoUrl;
+    if (googleReviewQrUrl !== undefined) updateData.google_review_qr_url = googleReviewQrUrl;
 
     const { data: organization, error } = await supabaseAdmin
       .from('organizations')

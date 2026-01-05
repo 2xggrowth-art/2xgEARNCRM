@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
@@ -10,6 +11,31 @@ interface WinSuccessProps {
 
 export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
   const router = useRouter();
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('/download.png'); // Default fallback QR code
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch organization's Google Review QR code
+    const fetchQrCode = async () => {
+      try {
+        const response = await fetch('/api/admin/organization', {
+          credentials: 'include',
+        });
+        const data = await response.json();
+
+        if (data.success && data.data.google_review_qr_url) {
+          setQrCodeUrl(data.data.google_review_qr_url);
+        }
+      } catch (error) {
+        console.error('Error fetching QR code:', error);
+        // Keep using default QR code
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQrCode();
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -22,14 +48,28 @@ export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-lg mb-6 border-2 border-gray-100">
-        <Image
-          src="/download.png"
-          alt="QR Code"
-          width={200}
-          height={200}
-          className="mx-auto"
-          priority
-        />
+        {loading ? (
+          <div className="w-[200px] h-[200px] flex items-center justify-center">
+            <div className="text-gray-400">Loading...</div>
+          </div>
+        ) : qrCodeUrl.startsWith('data:') || qrCodeUrl.startsWith('http') ? (
+          // Base64 or external URL - use img tag
+          <img
+            src={qrCodeUrl}
+            alt="Google Review QR Code"
+            className="w-[200px] h-[200px] object-contain mx-auto"
+          />
+        ) : (
+          // Local path - use Next.js Image
+          <Image
+            src={qrCodeUrl}
+            alt="QR Code"
+            width={200}
+            height={200}
+            className="mx-auto"
+            priority
+          />
+        )}
       </div>
 
       <p className="text-sm text-gray-600 mb-6 max-w-xs">
