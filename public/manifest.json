@@ -1,13 +1,19 @@
 {
-  "name": "Lead CRM - Sales Portal",
-  "short_name": "Lead CRM",
+  "name": "2XG EARN - Lead CRM",
+  "short_name": "2XG EARN",
   "description": "Multi-tenant Lead CRM system for sales representatives",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#16a34a",
   "orientation": "portrait",
   "icons": [
+    {
+      "src": "/2xg-logo.png",
+      "sizes": "1345x682",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -30,7 +36,7 @@
       "url": "/lead/new",
       "icons": [
         {
-          "src": "/icon-192.png",
+          "src": "/2xg-logo.png",
           "sizes": "192x192"
         }
       ]
@@ -42,7 +48,7 @@
       "url": "/dashboard",
       "icons": [
         {
-          "src": "/icon-192.png",
+          "src": "/2xg-logo.png",
           "sizes": "192x192"
         }
       ]

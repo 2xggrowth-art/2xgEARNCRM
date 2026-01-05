@@ -17,13 +17,16 @@ export const metadata: Metadata = {
   description: "Multi-tenant Lead CRM system for sales representatives",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/logo.png",
+    icon: [
+      { url: "/2xg-logo.png", sizes: "any", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: "/2xg-logo.png",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Lead CRM",
+    title: "Lead CRM - 2XG EARN",
   },
 };
 
