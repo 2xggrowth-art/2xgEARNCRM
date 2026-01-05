@@ -31,8 +31,10 @@ export function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
-    pathname.includes('/favicon.ico')
+    pathname.includes('/favicon.ico') ||
+    pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/)
   ) {
+    console.log('  ✅ Static file, skipping auth');
     return NextResponse.next();
   }
 
