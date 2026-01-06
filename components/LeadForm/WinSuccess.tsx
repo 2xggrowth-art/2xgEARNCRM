@@ -13,6 +13,8 @@ export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
   const router = useRouter();
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('/download.png'); // Default fallback QR code
   const [loading, setLoading] = useState(true);
+  const [reviewStatus, setReviewStatus] = useState<'pending' | 'reviewed' | 'yet_to_review'>('pending');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     // Fetch organization's Google Review QR code
@@ -36,6 +38,36 @@ export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
 
     fetchQrCode();
   }, []);
+
+  const handleReviewStatus = async (status: 'reviewed' | 'yet_to_review') => {
+    setUpdatingStatus(true);
+    try {
+      const response = await fetch('/api/leads/update-review-status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          invoiceNo,
+          reviewStatus: status,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setReviewStatus(status);
+      } else {
+        alert(data.error || 'Failed to update review status');
+      }
+    } catch (error) {
+      console.error('Error updating review status:', error);
+      alert('Failed to update review status');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -72,9 +104,55 @@ export default function WinSuccess({ invoiceNo, salePrice }: WinSuccessProps) {
         )}
       </div>
 
-      <p className="text-sm text-gray-600 mb-6 max-w-xs">
+      <p className="text-sm text-gray-600 mb-4 max-w-xs">
         Scan the QR code to leave us a review or follow us on social media!
       </p>
+
+      {/* Review Status Buttons */}
+      {reviewStatus === 'pending' && (
+        <div className="mb-6 w-full max-w-sm">
+          <p className="text-sm text-gray-700 font-medium mb-3">
+            Did the customer scan and review?
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => handleReviewStatus('reviewed')}
+              disabled={updatingStatus}
+              className="bg-green-600 text-white rounded-lg py-3 px-4 font-semibold hover:bg-green-700 active:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              ✓ Reviewed
+            </button>
+            <button
+              onClick={() => handleReviewStatus('yet_to_review')}
+              disabled={updatingStatus}
+              className="bg-orange-600 text-white rounded-lg py-3 px-4 font-semibold hover:bg-orange-700 active:bg-orange-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              ⏳ Yet to Review
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Status Confirmation Messages */}
+      {reviewStatus === 'reviewed' && (
+        <div className="mb-6 w-full max-w-sm bg-green-50 border-2 border-green-500 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-700">
+            <span className="text-2xl">✓</span>
+            <span className="font-semibold">Customer has reviewed!</span>
+          </div>
+          <p className="text-sm text-green-600 mt-1">Thank you for the feedback!</p>
+        </div>
+      )}
+
+      {reviewStatus === 'yet_to_review' && (
+        <div className="mb-6 w-full max-w-sm bg-orange-50 border-2 border-orange-500 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-orange-700">
+            <span className="text-2xl">⏳</span>
+            <span className="font-semibold">Marked as yet to review</span>
+          </div>
+          <p className="text-sm text-orange-600 mt-1">Customer will review later</p>
+        </div>
+      )}
 
       <div className="bg-green-50 border-2 border-green-200 p-5 rounded-lg mb-8 w-full max-w-sm">
         <div className="flex justify-between items-center mb-2">

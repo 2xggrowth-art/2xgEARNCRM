@@ -54,16 +54,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, whatsappPhoneNumberId, whatsappAccessToken, contactNumber, logoUrl, googleReviewQrUrl } = body;
+    const { name, contactNumber, logoUrl, googleReviewQrUrl } = body;
 
     const updateData: any = {};
 
     if (name) updateData.name = name.trim();
     if (contactNumber !== undefined) updateData.contact_number = contactNumber;
-    if (whatsappPhoneNumberId !== undefined)
-      updateData.whatsapp_phone_number_id = whatsappPhoneNumberId;
-    if (whatsappAccessToken !== undefined)
-      updateData.whatsapp_access_token = whatsappAccessToken;
     if (logoUrl !== undefined) updateData.logo_url = logoUrl;
     if (googleReviewQrUrl !== undefined) updateData.google_review_qr_url = googleReviewQrUrl;
 

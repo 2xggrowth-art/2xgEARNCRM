@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
       .from('categories')
       .select('*')
       .eq('organization_id', organizationId)
+      .order('display_order', { ascending: true })
       .order('name', { ascending: true });
 
     if (error) {
@@ -62,11 +63,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the max display_order for this organization
+    const { data: maxOrderData } = await supabaseAdmin
+      .from('categories')
+      .select('display_order')
+      .eq('organization_id', organizationId)
+      .order('display_order', { ascending: false })
+      .limit(1);
+
+    const nextOrder = maxOrderData && maxOrderData.length > 0
+      ? (maxOrderData[0].display_order || 0) + 1
+      : 1;
+
     const { data: category, error } = await supabaseAdmin
       .from('categories')
       .insert({
         organization_id: organizationId,
         name: name.trim(),
+        display_order: nextOrder,
       })
       .select()
       .single();

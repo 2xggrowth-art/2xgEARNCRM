@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
   };
 
   const exportToCSV = (rep: SalesRepData) => {
-    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Lead Score', 'Date'];
+    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Review Status', 'Lead Score', 'Date'];
     const rows = rep.leads.map((lead) => {
       const score = lead.status === 'lost' ? calculateLeadScore(lead) : 0;
       const category = lead.status === 'lost' ? getLeadScoreCategory(score) : null;
@@ -145,6 +145,7 @@ export default function AdminDashboardPage() {
         lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0),
         lead.status === 'win' ? 'Completed' : (lead.purchase_timeline || 'Unknown'),
         formatReason(lead),
+        lead.status === 'win' ? (lead.review_status === 'reviewed' ? 'Reviewed' : lead.review_status === 'yet_to_review' ? 'Yet to Review' : 'Pending') : '-',
         lead.status === 'lost' ? `${category?.label} (${score})` : '-',
         new Date(lead.created_at).toLocaleDateString('en-IN'),
       ];
@@ -528,6 +529,9 @@ export default function AdminDashboardPage() {
                             Reason
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Review Status
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Lead Score
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
@@ -581,6 +585,25 @@ export default function AdminDashboardPage() {
                                   'Want more options'
                                 ) : lead.not_today_reason === 'just_browsing' ? (
                                   'Just browsing'
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {isWin ? (
+                                  lead.review_status === 'reviewed' ? (
+                                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                      ✓ Reviewed
+                                    </span>
+                                  ) : lead.review_status === 'yet_to_review' ? (
+                                    <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">
+                                      ⏳ Yet to Review
+                                    </span>
+                                  ) : (
+                                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">
+                                      ⌛ Pending
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}

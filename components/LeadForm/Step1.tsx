@@ -83,17 +83,20 @@ export default function Step1({ initialData, onNext }: Step1Props) {
     return !newErrors.name && !newErrors.phone;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleStatusClick = (selectedStatus: LeadStatus) => {
+    // Set the status first
+    setStatus(selectedStatus);
+
+    // Validate and proceed to next step
     if (validate()) {
-      onNext({ name: name.trim(), phone, status });
+      onNext({ name: name.trim(), phone, status: selectedStatus });
     }
   };
 
   const totalSteps = status === 'win' ? 3 : 4;
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full p-6">
+    <div className="flex flex-col h-full p-6">
       <div className="mb-2 text-sm text-gray-500">Step 1/{totalSteps}</div>
       <h2 className="text-2xl font-bold mb-6">Customer Details</h2>
 
@@ -164,35 +167,20 @@ export default function Step1({ initialData, onNext }: Step1Props) {
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
-            onClick={() => setStatus('win')}
-            className={`py-4 px-6 rounded-lg text-lg font-semibold border-2 transition-all ${
-              status === 'win'
-                ? 'bg-green-600 text-white border-green-600 shadow-lg'
-                : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
-            }`}
+            onClick={() => handleStatusClick('win')}
+            className="py-4 px-6 rounded-lg text-lg font-semibold border-2 transition-all bg-white text-gray-700 border-gray-300 hover:bg-green-50 hover:border-green-500 active:bg-green-600 active:text-white"
           >
             ✓ WIN
           </button>
           <button
             type="button"
-            onClick={() => setStatus('lost')}
-            className={`py-4 px-6 rounded-lg text-lg font-semibold border-2 transition-all ${
-              status === 'lost'
-                ? 'bg-red-600 text-white border-red-600 shadow-lg'
-                : 'bg-white text-gray-700 border-gray-300 hover:border-red-400'
-            }`}
+            onClick={() => handleStatusClick('lost')}
+            className="py-4 px-6 rounded-lg text-lg font-semibold border-2 transition-all bg-white text-gray-700 border-gray-300 hover:bg-red-50 hover:border-red-500 active:bg-red-600 active:text-white"
           >
             ✗ LOST
           </button>
         </div>
       </div>
-
-      <button
-        type="submit"
-        className="mt-auto w-full bg-blue-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors"
-      >
-        Next
-      </button>
-    </form>
+    </div>
   );
 }

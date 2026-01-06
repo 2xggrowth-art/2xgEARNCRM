@@ -178,12 +178,12 @@ function DashboardContent() {
             2. CHECK MY INCENTIVE
           </button>
 
-          {/* Apply for SME */}
+          {/* Apply for SEM */}
           <button
-            onClick={() => alert('Coming soon: Apply for SME')}
+            onClick={() => alert('Coming soon: Apply for SEM')}
             className="bg-purple-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-purple-700 shadow-md transition-colors"
           >
-            3. APPLY FOR SME
+            3. Apply for SEM ⭐
           </button>
 
           {/* Apply for Promotion */}

@@ -12,6 +12,8 @@ export type NotTodayReason =
   | 'just_browsing'
   | 'other';
 
+export type ReviewStatus = 'pending' | 'reviewed' | 'yet_to_review';
+
 export interface Organization {
   id: string;
   name: string;
@@ -37,6 +39,7 @@ export interface Category {
   id: string;
   organization_id: string;
   name: string;
+  display_order: number;
   created_at: string;
 }
 
@@ -52,6 +55,7 @@ export interface Lead {
   // Win-specific fields
   invoice_no?: string | null;
   sale_price?: number | null;
+  review_status?: ReviewStatus | null; // Review tracking for Win leads
 
   // Lost-specific fields
   deal_size?: number | null;

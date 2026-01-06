@@ -3,6 +3,87 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Organization, Category } from '@/lib/types';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Sortable Category Item Component
+function SortableCategoryItem({
+  category,
+  onDelete,
+}: {
+  category: Category;
+  onDelete: (id: string, name: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-4 bg-gray-100 rounded-lg border border-gray-300 hover:bg-gray-200 hover:shadow-md transition-all cursor-move"
+    >
+      <div className="flex items-center gap-3">
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8h16M4 16h16"
+            />
+          </svg>
+        </div>
+        <span className="font-semibold text-gray-800">{category.name}</span>
+      </div>
+      <button
+        onClick={() => onDelete(category.id, category.name)}
+        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+            clipRule="evenodd"
+          />
+        </svg>
+        Delete
+      </button>
+    </div>
+  );
+}
 
 export default function AdminSettingsPage() {
   const router = useRouter();
@@ -14,13 +95,19 @@ export default function AdminSettingsPage() {
   // Form states
   const [orgName, setOrgName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [whatsappPhoneNumberId, setWhatsappPhoneNumberId] = useState('');
-  const [whatsappAccessToken, setWhatsappAccessToken] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [googleReviewQrUrl, setGoogleReviewQrUrl] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchOrganization();
@@ -37,8 +124,6 @@ export default function AdminSettingsPage() {
         setOrganization(org);
         setOrgName(org.name);
         setContactNumber(org.contact_number || '');
-        setWhatsappPhoneNumberId(org.whatsapp_phone_number_id || '');
-        setWhatsappAccessToken(org.whatsapp_access_token || '');
         setLogoUrl(org.logo_url || '');
         setGoogleReviewQrUrl(org.google_review_qr_url || '');
       }
@@ -145,8 +230,6 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({
           name: orgName,
           contactNumber,
-          whatsappPhoneNumberId,
-          whatsappAccessToken,
           logoUrl,
           googleReviewQrUrl,
         }),
@@ -193,6 +276,48 @@ export default function AdminSettingsPage() {
       }
     } catch (error) {
       alert('Network error');
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = categories.findIndex((cat) => cat.id === active.id);
+    const newIndex = categories.findIndex((cat) => cat.id === over.id);
+
+    const newCategories = arrayMove(categories, oldIndex, newIndex);
+    setCategories(newCategories);
+
+    // Update display_order in database
+    const categoryOrders = newCategories.map((cat, index) => ({
+      id: cat.id,
+      display_order: index + 1,
+    }));
+
+    try {
+      const response = await fetch('/api/categories/reorder', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ categoryOrders }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error('Failed to update category order');
+        // Revert to original order on error
+        fetchCategories();
+      }
+    } catch (error) {
+      console.error('Error updating category order:', error);
+      // Revert to original order on error
+      fetchCategories();
     }
   };
 
@@ -339,38 +464,6 @@ export default function AdminSettingsPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                WhatsApp Phone Number ID
-              </label>
-              <input
-                type="text"
-                value={whatsappPhoneNumberId}
-                onChange={(e) => setWhatsappPhoneNumberId(e.target.value)}
-                className="w-full rounded-lg border-2 border-gray-300 p-3 focus:border-blue-500 focus:outline-none"
-                placeholder="From Meta Business Manager"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Get this from Meta Business Manager → WhatsApp → Phone Numbers
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                WhatsApp Access Token
-              </label>
-              <textarea
-                value={whatsappAccessToken}
-                onChange={(e) => setWhatsappAccessToken(e.target.value)}
-                className="w-full rounded-lg border-2 border-gray-300 p-3 focus:border-blue-500 focus:outline-none"
-                rows={3}
-                placeholder="Permanent access token from Meta"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Generate a permanent token from Meta Developer Console
-              </p>
-            </div>
-
             <button
               type="submit"
               disabled={saving}
@@ -405,25 +498,26 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            {categories.map((category) => (
-              <div
-                key={category.id}
-                className="flex items-center justify-between p-4 bg-gray-100 rounded-lg border border-gray-300 hover:bg-gray-200 hover:shadow-md transition-all"
-              >
-                <span className="font-semibold text-gray-800">{category.name}</span>
-                <button
-                  onClick={() => handleDeleteCategory(category.id, category.name)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  Delete
-                </button>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={categories.map((cat) => cat.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {categories.map((category) => (
+                  <SortableCategoryItem
+                    key={category.id}
+                    category={category}
+                    onDelete={handleDeleteCategory}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
 
           {categories.length === 0 && (
             <p className="text-gray-500 text-center py-4">No categories yet</p>

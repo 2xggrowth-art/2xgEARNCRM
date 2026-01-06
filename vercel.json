@@ -4,5 +4,11 @@
   "installCommand": "npm install",
   "git": {
     "deploymentEnabled": true
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/auto-expire-leads",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }
