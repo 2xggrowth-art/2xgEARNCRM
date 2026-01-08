@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Organization, Category } from '@/lib/types';
+import WhatsAppSettings from '@/components/WhatsAppSettings';
 import {
   DndContext,
   closestCenter,
@@ -523,6 +524,9 @@ export default function AdminSettingsPage() {
             <p className="text-gray-500 text-center py-4">No categories yet</p>
           )}
         </div>
+
+        {/* WhatsApp API Settings */}
+        <WhatsAppSettings />
       </div>
     </div>
   );

@@ -11,17 +11,19 @@ import WinStep3 from '@/components/LeadForm/WinStep3';
 import WinSuccess from '@/components/LeadForm/WinSuccess';
 import LostStep3 from '@/components/LeadForm/LostStep3';
 import LostStep4 from '@/components/LeadForm/LostStep4';
+import LostSuccess from '@/components/LeadForm/LostSuccess';
 import {
   Step1Data,
   Step2Data,
   WinStep3Data,
   LostStep3Data,
   LostStep4Data,
+  Step4Data,
   LeadStatus,
 } from '@/lib/types';
 
 type WinStep = 1 | 2 | 3 | 'success';
-type LostStep = 1 | 2 | 3 | 4;
+type LostStep = 1 | 2 | 3 | 4 | 'success';
 
 export default function NewLeadPage() {
   const router = useRouter();
@@ -44,6 +46,10 @@ export default function NewLeadPage() {
     dealSize: 0,
     modelName: '',
   });
+  const [lostStep4Data, setLostStep4Data] = useState<Step4Data>({
+    purchaseTimeline: 'today',
+  });
+  const [createdLeadId, setCreatedLeadId] = useState<string>('');
 
   const handleStep1Next = (data: Step1Data) => {
     setStep1Data(data);
@@ -107,7 +113,8 @@ export default function NewLeadPage() {
   };
 
   // Lost Flow - Step 4
-  const handleLostStep4Submit = async (data: LostStep4Data) => {
+  const handleLostStep4Submit = async (data: Step4Data) => {
+    setLostStep4Data(data);
     setLoading(true);
 
     try {
@@ -139,8 +146,10 @@ export default function NewLeadPage() {
         return;
       }
 
-      // Show success message and redirect
-      router.push('/dashboard?success=true');
+      // Save the lead ID and show success screen with WhatsApp button
+      setCreatedLeadId(result.leadId || result.data?.id || '');
+      setCurrentStep(5); // Show LostSuccess screen
+      setLoading(false);
     } catch (error) {
       console.error('Submit error:', error);
       alert('Network error. Please try again.');
@@ -201,6 +210,36 @@ export default function NewLeadPage() {
             onSubmit={handleLostStep4Submit}
             onBack={() => setCurrentStep(3)}
             loading={loading}
+          />
+        );
+      }
+      if (currentStep === 5) {
+        // Get the lost reason text
+        const getLostReasonText = () => {
+          if (!lostStep4Data.notTodayReason) return undefined;
+
+          if (lostStep4Data.notTodayReason === 'other' && lostStep4Data.otherReason) {
+            return lostStep4Data.otherReason;
+          }
+
+          const reasonMap: Record<string, string> = {
+            need_family_approval: 'Need to discuss with family',
+            price_high: 'Price concern',
+            want_more_options: 'Want to see more options',
+            just_browsing: 'Just looking around',
+          };
+
+          return reasonMap[lostStep4Data.notTodayReason] || lostStep4Data.notTodayReason;
+        };
+
+        return (
+          <LostSuccess
+            leadId={createdLeadId}
+            customerName={step1Data.name}
+            customerPhone={step1Data.phone}
+            lostReason={getLostReasonText()}
+            dealSize={lostStep3Data.dealSize}
+            modelName={lostStep3Data.modelName}
           />
         );
       }

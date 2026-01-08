@@ -4,15 +4,6 @@ import { APIResponse } from '@/lib/types';
 
 export async function PUT(request: NextRequest) {
   try {
-    const organizationId = request.headers.get('x-organization-id');
-
-    if (!organizationId) {
-      return NextResponse.json<APIResponse>(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
     const { invoiceNo, reviewStatus } = body;
 
@@ -31,12 +22,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update the lead's review status
+    // Update the lead's review status (no organization_id check needed, invoice_no is unique)
     const { data: lead, error } = await supabaseAdmin
       .from('leads')
       .update({ review_status: reviewStatus })
       .eq('invoice_no', invoiceNo)
-      .eq('organization_id', organizationId)
       .eq('status', 'win')
       .select()
       .single();

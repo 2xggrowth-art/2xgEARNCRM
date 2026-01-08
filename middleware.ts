@@ -4,16 +4,21 @@ import type { NextRequest } from 'next/server';
 // Define public routes that don't require authentication
 const publicRoutes = [
   '/login',
+  '/customer',
   '/api/auth/login',
   '/api/auth/request-otp',
   '/api/auth/verify-otp',
   '/api/auth/register',
+  '/api/customers',
+  '/api/leads/check-invoice',
+  '/api/leads/update-review-status',
+  '/api/organization/logo',
 ];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  console.log('🔵 Proxy START for:', pathname);
+  console.log('🔵 Middleware START for:', pathname);
 
   // Allow root path
   if (pathname === '/') {
@@ -62,27 +67,27 @@ export function proxy(request: NextRequest) {
   try {
     const user = JSON.parse(userCookie);
 
-    console.log('Proxy - Parsed user from cookie:', {
+    console.log('Middleware - Parsed user from cookie:', {
       pathname,
       userId: user.id,
       userRole: user.role,
       organizationId: user.organizationId,
     });
 
-    // Set headers on the request - use rewrite for Next.js 16 compatibility
+    // Set headers on the request
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', user.id || '');
     requestHeaders.set('x-user-role', user.role || '');
     requestHeaders.set('x-organization-id', user.organizationId || '');
 
-    console.log('Proxy - Headers being set:', {
+    console.log('Middleware - Headers being set:', {
       'x-user-id': requestHeaders.get('x-user-id'),
       'x-user-role': requestHeaders.get('x-user-role'),
       'x-organization-id': requestHeaders.get('x-organization-id'),
     });
 
-    // Use rewrite instead of next for Next.js 16
-    const response = NextResponse.rewrite(request.url, {
+    // Use NextResponse.next() with custom headers
+    const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
@@ -90,7 +95,7 @@ export function proxy(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Proxy error parsing user cookie:', error, 'Cookie value:', userCookie);
+    console.error('Middleware error parsing user cookie:', error, 'Cookie value:', userCookie);
     // Invalid user cookie - redirect to login
     if (!pathname.startsWith('/api')) {
       return NextResponse.redirect(new URL('/login', request.url));
