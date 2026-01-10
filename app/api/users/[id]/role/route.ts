@@ -16,7 +16,7 @@ const supabase = createClient(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
 
@@ -24,7 +24,8 @@ export async function PUT(
     return apiResponse.unauthorized();
   }
 
-  const userId = params.id;
+  // Await params in Next.js 16
+  const { id: userId } = await params;
 
   const body = await getRequestBody<{
     role: UserRole;

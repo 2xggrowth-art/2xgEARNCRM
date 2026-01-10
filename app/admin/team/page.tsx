@@ -275,12 +275,12 @@ export default function AdminTeamPage() {
                           <h3 className="font-semibold text-lg">{member.name}</h3>
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${
-                              member.role === 'admin'
+                              member.role === 'manager' || member.role === 'super_admin'
                                 ? 'bg-purple-100 text-purple-700'
                                 : 'bg-blue-100 text-blue-700'
                             }`}
                           >
-                            {member.role === 'admin' ? 'Admin' : 'Sales Rep'}
+                            {member.role === 'manager' ? 'Manager' : member.role === 'super_admin' ? 'Super Admin' : 'Sales Rep'}
                           </span>
                         </div>
                         <p className="text-gray-600 mb-2">{member.phone}</p>
