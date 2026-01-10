@@ -52,8 +52,8 @@ export default function AdminDashboardPage() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
 
-      // Redirect if not admin
-      if (parsedUser.role !== 'admin') {
+      // Redirect if not admin or manager
+      if (parsedUser.role !== 'admin' && parsedUser.role !== 'manager') {
         router.push('/dashboard');
         return;
       }

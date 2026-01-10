@@ -55,12 +55,12 @@ export default function LoginPage() {
           router.push('/super-admin/dashboard');
           break;
         case 'manager':
-          router.push('/manager/dashboard');
+        case 'admin': // Backward compatibility
+          router.push('/admin/dashboard');
           break;
         case 'staff':
           router.push('/staff/dashboard');
           break;
-        case 'admin': // Backward compatibility
         case 'sales_rep':
         default:
           router.push('/dashboard');
