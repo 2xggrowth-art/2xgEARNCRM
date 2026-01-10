@@ -46,13 +46,25 @@ export default function LoginPage() {
       // Store token and user data
       document.cookie = `auth_token=${data.data.token}; path=/; max-age=604800`; // 7 days
       document.cookie = `user=${JSON.stringify(data.data.user)}; path=/; max-age=604800`;
+      localStorage.setItem('token', data.data.token); // Store token in localStorage
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
       // Redirect based on role
-      if (data.data.user.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/dashboard');
+      switch (data.data.user.role) {
+        case 'super_admin':
+          router.push('/super-admin/dashboard');
+          break;
+        case 'manager':
+          router.push('/manager/dashboard');
+          break;
+        case 'staff':
+          router.push('/staff/dashboard');
+          break;
+        case 'admin': // Backward compatibility
+        case 'sales_rep':
+        default:
+          router.push('/dashboard');
+          break;
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -89,10 +101,26 @@ export default function LoginPage() {
       // Store token and user data
       document.cookie = `auth_token=${data.data.token}; path=/; max-age=604800`;
       document.cookie = `user=${JSON.stringify(data.data.user)}; path=/; max-age=604800`;
+      localStorage.setItem('token', data.data.token); // Store token in localStorage
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
-      // Redirect to admin dashboard
-      router.push('/admin/dashboard');
+      // Redirect based on role (registration creates manager role by default)
+      switch (data.data.user.role) {
+        case 'super_admin':
+          router.push('/super-admin/dashboard');
+          break;
+        case 'manager':
+          router.push('/manager/dashboard');
+          break;
+        case 'staff':
+          router.push('/staff/dashboard');
+          break;
+        case 'admin': // Backward compatibility
+        case 'sales_rep':
+        default:
+          router.push('/dashboard');
+          break;
+      }
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {

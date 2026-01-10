@@ -13,10 +13,21 @@ export default function HomePage() {
     if (user) {
       const userData = JSON.parse(user);
       // Redirect based on role
-      if (userData.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/dashboard');
+      switch (userData.role) {
+        case 'super_admin':
+          router.push('/super-admin/dashboard');
+          break;
+        case 'manager':
+          router.push('/manager/dashboard');
+          break;
+        case 'staff':
+          router.push('/staff/dashboard');
+          break;
+        case 'admin': // Backward compatibility
+        case 'sales_rep':
+        default:
+          router.push('/dashboard');
+          break;
       }
     } else {
       // Not logged in, redirect to login
