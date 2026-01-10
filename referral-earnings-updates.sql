@@ -78,8 +78,13 @@ WHERE status = 'win'
 -- ================================================
 -- Ensure proper access control for the new columns
 
+-- Drop existing policies if they exist (to avoid errors)
+DROP POLICY IF EXISTS "Sales reps can view their own leads review status" ON leads;
+DROP POLICY IF EXISTS "Sales reps can update review status on their WIN leads" ON leads;
+DROP POLICY IF EXISTS "Admins can update incentive information" ON leads;
+
 -- Policy: Sales reps can view their own leads' review status
-CREATE POLICY IF NOT EXISTS "Sales reps can view their own leads review status"
+CREATE POLICY "Sales reps can view their own leads review status"
 ON leads FOR SELECT
 USING (
   sales_rep_id = auth.uid()
@@ -87,7 +92,7 @@ USING (
 );
 
 -- Policy: Sales reps can update review_status on their own WIN leads
-CREATE POLICY IF NOT EXISTS "Sales reps can update review status on their WIN leads"
+CREATE POLICY "Sales reps can update review status on their WIN leads"
 ON leads FOR UPDATE
 USING (
   sales_rep_id = auth.uid()
@@ -99,7 +104,7 @@ WITH CHECK (
 );
 
 -- Policy: Admins can update incentive information
-CREATE POLICY IF NOT EXISTS "Admins can update incentive information"
+CREATE POLICY "Admins can update incentive information"
 ON leads FOR UPDATE
 USING (
   (SELECT role FROM users WHERE id = auth.uid()) = 'admin'

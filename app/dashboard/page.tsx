@@ -24,6 +24,7 @@ function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSEMModal, setShowSEMModal] = useState(false);
   const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [semCommitmentAccepted, setSemCommitmentAccepted] = useState(false);
 
   useEffect(() => {
     // Check if redirected with success
@@ -360,82 +361,134 @@ function DashboardContent() {
       {showSEMModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Apply for SEM ⭐</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Apply for SEM ⭐</h2>
 
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Conditions:</h3>
-              <ul className="space-y-3">
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Full acceptance of the system.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Follow the hierarchy.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Every client must go through 2 touch points.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">End to end support — Walky - Service.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Walky — Sales — Assembly — delivery — Support.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">No back to back off without informing.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Error reduced to 1%.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Maintain the system.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Justify the price taken from the client in the invoice.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">No deep discount & push accessories value.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Give respect = take respect.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Treat equally.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Attend the client once he walks in within 5 sec.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">Sales are additional responsibility.</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-purple-600 font-bold mr-3">•</span>
-                  <span className="text-gray-800">96% following S.O.P for all the responsibilities.</span>
-                </li>
-              </ul>
+            {/* Primary Acknowledgement Callout - Interactive */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-5 mb-6 shadow-lg border-2 border-purple-800">
+              <div className="mb-4">
+                <div className="flex items-start mb-4">
+                  <div className="text-3xl mr-3">✓</div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-purple-100 mb-1 uppercase tracking-wide">Primary Commitment</h3>
+                    <p className="text-white font-bold text-lg leading-relaxed">
+                      "I fully accept the system, hierarchy, SOPs, and accountability required to be an SEM."
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Accept Button */}
+              {!semCommitmentAccepted ? (
+                <button
+                  onClick={() => setSemCommitmentAccepted(true)}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  I Accept
+                </button>
+              ) : (
+                <div className="flex items-center justify-center bg-green-500 text-white font-bold py-3 px-6 rounded-lg">
+                  <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Accepted
+                </div>
+              )}
             </div>
 
-            <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-6 mb-6 text-center">
-              <div className="text-4xl mb-2">🚀</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">Coming Soon</h3>
-              <p className="text-gray-600">We're working on the SEM application process!</p>
+            {/* Requirements List - Conditionally Rendered with Slide Animation */}
+            <div
+              className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                semCommitmentAccepted ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Requirements & Standards:</h3>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Compliance:</span>
+                      <span className="text-gray-700 ml-1">96% compliance. No shortcuts, no parallel systems.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Workflow:</span>
+                      <span className="text-gray-700 ml-1">End-to-end support: Walk-in → Sales → Assembly → Delivery → Support.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Lead Management:</span>
+                      <span className="text-gray-700 ml-1">If a lead is lost, it must go through the manager level without fail.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Client Relations:</span>
+                      <span className="text-gray-700 ml-1">Highest respect to all clients—zero tolerance for disrespect.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Documentation:</span>
+                      <span className="text-gray-700 ml-1">CRM entries, job cards, service notes, and delivery updates are mandatory.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Accuracy:</span>
+                      <span className="text-gray-700 ml-1">Operational errors must be maintained at ≤1%.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Culture:</span>
+                      <span className="text-gray-700 ml-1">Treat all customers and teammates equally and respectfully.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Attendance:</span>
+                      <span className="text-gray-700 ml-1">No back-to-back offs without prior approval and proper handover.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Standardization:</span>
+                      <span className="text-gray-700 ml-1">96% adherence to S.O.P. for all prime responsibilities.</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-600 font-bold mr-3 mt-0.5">•</span>
+                    <div>
+                      <span className="font-semibold text-gray-900">Efficiency:</span>
+                      <span className="text-gray-700 ml-1">Every task and sale must be closed within the predefined timeline.</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-6 mb-6 text-center">
+                <div className="text-4xl mb-2">🚀</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">Coming Soon</h3>
+                <p className="text-gray-600">We're working on the SEM application process!</p>
+              </div>
             </div>
 
             <button
-              onClick={() => setShowSEMModal(false)}
+              onClick={() => {
+                setShowSEMModal(false);
+                setSemCommitmentAccepted(false);
+              }}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-3 px-4 font-semibold"
             >
               Close
