@@ -4,15 +4,11 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 import { apiResponse, getRequestBody, getUserFromRequest } from '@/lib/middleware';
 import { UserRole } from '@/lib/types';
 import { canManageUser } from '@/lib/permissions';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin as supabase } from '@/lib/supabase';
 
 export async function PUT(
   request: NextRequest,
@@ -85,7 +81,7 @@ export async function PUT(
       'User role updated successfully'
     );
   } catch (error: any) {
-    console.error('Error updating user role:', error);
+    logger.error('Error updating user role:', error);
     return apiResponse.serverError(error.message);
   }
 }

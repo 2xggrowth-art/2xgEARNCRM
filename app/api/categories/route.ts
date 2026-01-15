@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to fetch categories' },
         { status: 500 }
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       data: categories,
     });
   } catch (error) {
-    console.error('Categories API error:', error);
+    logger.error('Categories API error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error creating category:', error);
+      logger.error('Error creating category:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to create category' },
         { status: 500 }
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       data: category,
     });
   } catch (error) {
-    console.error('Create category error:', error);
+    logger.error('Create category error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

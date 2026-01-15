@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken, isValidPhone, isValidName, isValidPIN, hashPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (orgError || !newOrg) {
-      console.error('Error creating organization:', orgError);
+      logger.error('Error creating organization:', orgError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to create organization' },
         { status: 500 }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError || !newUser) {
-      console.error('Error creating user:', userError);
+      logger.error('Error creating user:', userError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to create user' },
         { status: 500 }
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error('Registration error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

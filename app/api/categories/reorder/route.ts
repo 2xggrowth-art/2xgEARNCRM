@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -41,7 +42,7 @@ export async function PUT(request: NextRequest) {
     // Check for errors
     const errors = results.filter((result) => result.error);
     if (errors.length > 0) {
-      console.error('Error updating category orders:', errors);
+      logger.error('Error updating category orders:', errors);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to update category order' },
         { status: 500 }
@@ -53,7 +54,7 @@ export async function PUT(request: NextRequest) {
       message: 'Category order updated successfully',
     });
   } catch (error) {
-    console.error('Reorder categories error:', error);
+    logger.error('Reorder categories error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

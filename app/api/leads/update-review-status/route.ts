@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -11,7 +12,7 @@ export async function PUT(request: NextRequest) {
     const userId = request.headers.get('x-user-id');
     const organizationId = request.headers.get('x-organization-id');
 
-    console.log('📝 Update review status request:', { invoiceNo, reviewStatus, userId, organizationId });
+    logger.info('📝 Update review status request:', { invoiceNo, reviewStatus, userId, organizationId });
 
     // Validate inputs
     if (!invoiceNo) {
@@ -37,7 +38,7 @@ export async function PUT(request: NextRequest) {
       .maybeSingle();
 
     if (checkError) {
-      console.error('❌ Database error (column may not exist):', checkError);
+      logger.error('❌ Database error (column may not exist):', checkError);
       return NextResponse.json<APIResponse>(
         {
           success: false,
@@ -77,14 +78,14 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('❌ Error updating review status:', error);
+      logger.error('❌ Error updating review status:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: `Failed to update review status: ${error.message}` },
         { status: 500 }
       );
     }
 
-    console.log('✅ Review status updated successfully');
+    logger.info('✅ Review status updated successfully');
 
     return NextResponse.json<APIResponse>({
       success: true,
@@ -92,7 +93,7 @@ export async function PUT(request: NextRequest) {
       message: 'Review status updated successfully',
     });
   } catch (error: any) {
-    console.error('❌ Update review status error:', error);
+    logger.error('❌ Update review status error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: `Internal server error: ${error?.message || 'Unknown error'}` },
       { status: 500 }

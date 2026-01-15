@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse, LeadStatus } from '@/lib/types';
 
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       leadRating, // 5-star rating (1-5)
     } = body;
 
-    console.log('Creating lead with status:', status);
+    logger.info('Creating lead with status:', status);
 
     // Common validation
     if (!customerName || customerName.trim().length < 2) {
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
         not_today_reason: null,
       };
 
-      console.log('Creating Win lead:', leadData);
+      logger.info('Creating Win lead:', leadData);
     }
 
     // LOST FLOW VALIDATION & DATA
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (modelCheckError) {
-        console.error('Error checking model:', modelCheckError);
+        logger.error('Error checking model:', modelCheckError);
         return NextResponse.json<APIResponse>(
           { success: false, error: `Model check failed: ${modelCheckError.message}` },
           { status: 500 }
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
 
       if (existingModel) {
         modelId = existingModel.id;
-        console.log('Using existing model:', modelId);
+        logger.info('Using existing model:', modelId);
       } else {
         // Create new model
         const { data: newModel, error: modelError } = await supabaseAdmin
@@ -195,7 +196,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (modelError || !newModel) {
-          console.error('Error creating model:', modelError);
+          logger.error('Error creating model:', modelError);
           return NextResponse.json<APIResponse>(
             {
               success: false,
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
         }
 
         modelId = newModel.id;
-        console.log('Created new model:', modelId);
+        logger.info('Created new model:', modelId);
       }
 
       leadData = {
@@ -222,7 +223,7 @@ export async function POST(request: NextRequest) {
         sale_price: null,
       };
 
-      console.log('Creating Lost lead:', leadData);
+      logger.info('Creating Lost lead:', leadData);
     }
 
     // Create the lead
@@ -233,15 +234,15 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error || !lead) {
-      console.error('Error creating lead:', error);
-      console.error('Lead data attempted:', leadData);
+      logger.error('Error creating lead:', error);
+      logger.error('Lead data attempted:', leadData);
       return NextResponse.json<APIResponse>(
         { success: false, error: `Failed to create lead: ${error?.message || 'Unknown error'}` },
         { status: 500 }
       );
     }
 
-    console.log('Lead created successfully:', lead.id);
+    logger.info('Lead created successfully:', lead.id);
 
     return NextResponse.json<APIResponse>(
       {
@@ -252,7 +253,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Create lead error:', error);
+    logger.error('Create lead error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

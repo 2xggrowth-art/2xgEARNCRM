@@ -4,18 +4,14 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 import {
   requirePermission,
   apiResponse,
   getRequestBody,
   getUserFromRequest,
 } from '@/lib/middleware';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin as supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   // Check permission
@@ -94,7 +90,7 @@ export async function POST(request: NextRequest) {
       'Manager assigned successfully'
     );
   } catch (error: any) {
-    console.error('Error assigning manager:', error);
+    logger.error('Error assigning manager:', error);
     return apiResponse.serverError(error.message);
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 
 interface APIResponse<T = any> {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.error('Error checking invoice:', error);
+      logger.error('Error checking invoice:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Database error' },
         { status: 500 }
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       exists: !!data,
     });
   } catch (error) {
-    console.error('Check invoice error:', error);
+    logger.error('Check invoice error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

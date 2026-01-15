@@ -5,7 +5,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 import {
   requirePermission,
   apiResponse,
@@ -14,11 +14,7 @@ import {
 } from '@/lib/middleware';
 import { hashPIN, isValidPhone, isValidPIN, isValidName } from '@/lib/auth';
 import { canCreateUserWithRole, requiresManager } from '@/lib/permissions';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin as supabase } from '@/lib/supabase';
 
 /**
  * GET - Get manager's team members
@@ -84,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     return apiResponse.success(teamWithStats);
   } catch (error: any) {
-    console.error('Error fetching team:', error);
+    logger.error('Error fetching team:', error);
     return apiResponse.serverError(error.message);
   }
 }
@@ -174,7 +170,7 @@ export async function POST(request: NextRequest) {
       `${role === 'staff' ? 'Staff' : 'Sales Rep'} added successfully`
     );
   } catch (error: any) {
-    console.error('Error adding team member:', error);
+    logger.error('Error adding team member:', error);
     return apiResponse.serverError(error.message);
   }
 }

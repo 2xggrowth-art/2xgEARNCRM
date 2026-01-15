@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use raw SQL to bypass PostgREST schema cache issues
-    console.log('Creating lead with raw SQL...');
+    logger.info('Creating lead with raw SQL...');
 
     // First, find or create the model using raw SQL
     const { data: modelResult, error: modelCheckError } = await supabaseAdmin.rpc(
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (modelCheckError) {
-      console.error('Error with model SQL:', modelCheckError);
+      logger.error('Error with model SQL:', modelCheckError);
 
       // Fallback: Try using the ORM method
       const { data: existingModel } = await supabaseAdmin
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (modelError) {
-          console.error('Error creating model:', modelError);
+          logger.error('Error creating model:', modelError);
           return NextResponse.json<APIResponse>(
             { success: false, error: 'Failed to create model' },
             { status: 500 }
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (leadError) {
-        console.error('Error creating lead with SQL:', leadError);
+        logger.error('Error creating lead with SQL:', leadError);
         return NextResponse.json<APIResponse>(
           { success: false, error: 'Failed to create lead' },
           { status: 500 }
@@ -178,7 +179,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Create lead error:', error);
+    logger.error('Create lead error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

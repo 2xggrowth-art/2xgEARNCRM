@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error fetching organization:', error);
+      logger.error('Error fetching organization:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to fetch organization' },
         { status: 500 }
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       data: organization,
     });
   } catch (error) {
-    console.error('Get organization error:', error);
+    logger.error('Get organization error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -71,7 +72,7 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error updating organization:', error);
+      logger.error('Error updating organization:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to update organization' },
         { status: 500 }
@@ -84,7 +85,7 @@ export async function PUT(request: NextRequest) {
       data: organization,
     });
   } catch (error) {
-    console.error('Update organization error:', error);
+    logger.error('Update organization error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

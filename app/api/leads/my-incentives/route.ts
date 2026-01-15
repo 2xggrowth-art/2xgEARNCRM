@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +29,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching incentives:', error);
+      logger.error('Error fetching incentives:', error);
       return NextResponse.json(
         { success: false, error: 'Failed to fetch incentives' },
         { status: 500 }
@@ -51,7 +47,7 @@ export async function GET(request: NextRequest) {
       data: formattedLeads,
     });
   } catch (error) {
-    console.error('Error in GET /api/leads/my-incentives:', error);
+    logger.error('Error in GET /api/leads/my-incentives:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

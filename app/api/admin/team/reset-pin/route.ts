@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isValidPIN, hashPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       .eq('id', userId);
 
     if (updateError) {
-      console.error('Error updating PIN:', updateError);
+      logger.error('Error updating PIN:', updateError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to update PIN' },
         { status: 500 }
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
       message: 'PIN reset successfully',
     });
   } catch (error) {
-    console.error('Reset PIN error:', error);
+    logger.error('Reset PIN error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
       .eq('organization_id', organizationId);
 
     if (fetchError) {
-      console.error('Error fetching leads for verification:', fetchError);
+      logger.error('Error fetching leads for verification:', fetchError);
       return NextResponse.json(
         { success: false, error: 'Failed to verify leads' },
         { status: 500 }
@@ -74,7 +70,7 @@ export async function POST(request: NextRequest) {
       .eq('organization_id', organizationId);
 
     if (deleteError) {
-      console.error('Error bulk deleting leads:', deleteError);
+      logger.error('Error bulk deleting leads:', deleteError);
       return NextResponse.json(
         { success: false, error: 'Failed to delete leads' },
         { status: 500 }
@@ -87,7 +83,7 @@ export async function POST(request: NextRequest) {
       deletedCount: leadIds.length,
     });
   } catch (error) {
-    console.error('Error in POST /api/admin/leads/bulk-delete:', error);
+    logger.error('Error in POST /api/admin/leads/bulk-delete:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

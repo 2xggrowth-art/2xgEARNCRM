@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateOTP, getOTPExpiry, isValidPhone } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertError) {
-      console.error('Error storing OTP:', insertError);
+      logger.error('Error storing OTP:', insertError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to generate OTP. Please try again.' },
         { status: 500 }
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     const smsResult = await sendSMS(phone, formatOTPMessage(otp));
 
     if (!smsResult.success) {
-      console.error('SMS sending failed:', smsResult.error);
+      logger.error('SMS sending failed:', smsResult.error);
       // Don't fail the request - still allow OTP to be used
     }
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Request OTP error:', error);
+    logger.error('Request OTP error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -14,8 +14,8 @@ export default function Icon() {
     (
       <div
         style={{
-          fontSize: 256,
-          background: '#3b82f6',
+          fontSize: 140,
+          background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -23,9 +23,10 @@ export default function Icon() {
           justifyContent: 'center',
           color: 'white',
           fontWeight: 'bold',
+          letterSpacing: '-0.05em',
         }}
       >
-        L
+        2XG
       </div>
     ),
     {

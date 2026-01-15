@@ -5,13 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 import { requirePermission, apiResponse, getRequestBody } from '@/lib/middleware';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin as supabase } from '@/lib/supabase';
 
 /**
  * GET - List all organizations (Super Admin only)
@@ -62,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     return apiResponse.success(orgsWithCounts);
   } catch (error: any) {
-    console.error('Error fetching organizations:', error);
+    logger.error('Error fetching organizations:', error);
     return apiResponse.serverError(error.message);
   }
 }
@@ -168,7 +164,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (categoryError) {
-      console.error('Error creating categories:', categoryError);
+      logger.error('Error creating categories:', categoryError);
       // Non-critical, continue
     }
 
@@ -185,7 +181,7 @@ export async function POST(request: NextRequest) {
       'Organization created successfully'
     );
   } catch (error: any) {
-    console.error('Error creating organization:', error);
+    logger.error('Error creating organization:', error);
     return apiResponse.serverError(error.message);
   }
 }

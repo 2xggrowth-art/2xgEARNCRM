@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching admin leads:', error);
+      logger.error('Error fetching admin leads:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to fetch leads' },
         { status: 500 }
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
       data: transformedLeads,
     });
   } catch (error) {
-    console.error('Admin leads API error:', error);
+    logger.error('Admin leads API error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

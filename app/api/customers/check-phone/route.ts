@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error checking phone:', error);
+      logger.error('Error checking phone:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to check phone number' },
         { status: 500 }
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Check phone error:', error);
+    logger.error('Check phone error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
