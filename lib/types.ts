@@ -14,13 +14,39 @@ export type NotTodayReason =
 
 export type ReviewStatus = 'pending' | 'reviewed' | 'yet_to_review';
 
+export type WhatsAppProvider = 'meta' | 'whatstool' | 'other';
+
+// WhatsApp Provider Configuration Types
+export interface MetaWhatsAppConfig {
+  accessToken: string;
+  phoneNumberId: string;
+  wabaId?: string;
+  phoneNumber?: string;
+  businessName?: string;
+  selectedTemplate?: string;
+}
+
+export interface WhatstoolConfig {
+  apiKey: string;
+  channelNumber: string;
+  businessName?: string;
+}
+
+export type WhatsAppConfig = MetaWhatsAppConfig | WhatstoolConfig | Record<string, any>;
+
 export interface Organization {
   id: string;
   name: string;
   logo_url: string | null;
   google_review_qr_url: string | null;
-  whatsapp_phone_number_id: string | null;
-  whatsapp_access_token: string | null;
+  contact_number: string | null;
+  whatsapp_provider: WhatsAppProvider;
+  whatsapp_config: WhatsAppConfig;
+  whatsapp_is_active: boolean;
+  waba_id: string | null;
+  // Legacy fields (deprecated, kept for backward compatibility)
+  whatsapp_phone_number_id?: string | null;
+  whatsapp_access_token?: string | null;
   created_at: string;
   updated_at: string;
 }

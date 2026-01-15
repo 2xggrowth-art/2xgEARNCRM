@@ -2,7 +2,6 @@
 
 import { supabaseAdmin } from '@/lib/supabase';
 import {
-  WhatsAppCredentials,
   WhatsAppTemplateMessage,
   WhatsAppAPIResponse,
   WhatsAppAPIError,
@@ -10,6 +9,7 @@ import {
   SendWhatsAppMessageResult,
   WhatsAppTemplateComponent,
 } from '@/lib/types/whatsapp';
+import { WhatsAppProvider, WhatsAppConfig, MetaWhatsAppConfig, WhatstoolConfig } from '@/lib/types';
 import { cookies } from 'next/headers';
 
 /**
@@ -42,26 +42,43 @@ async function getUserFromCookie(): Promise<{
 }
 
 /**
- * Fetches WhatsApp credentials for a specific organization
+ * Fetches WhatsApp configuration for a specific organization
  * @param organizationId - The organization ID
- * @returns WhatsApp credentials or null if not configured
+ * @returns WhatsApp configuration with provider info or null if not configured
  */
-async function getWhatsAppCredentials(organizationId: string): Promise<WhatsAppCredentials | null> {
+async function getWhatsAppCredentials(organizationId: string): Promise<{
+  provider: WhatsAppProvider;
+  config: WhatsAppConfig;
+  isActive: boolean;
+  phoneNumber?: string;
+  businessName?: string;
+  organizationId: string;
+} | null> {
   try {
-    // Fetch WhatsApp credentials for the organization
-    const { data: credentials, error: credError } = await supabaseAdmin
-      .from('whatsapp_credentials')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .eq('is_active', true)
+    // Fetch WhatsApp configuration from organizations table
+    const { data: org, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('whatsapp_provider, whatsapp_config, whatsapp_is_active, whatsapp_phone_number, whatsapp_business_name')
+      .eq('id', organizationId)
       .maybeSingle();
 
-    if (credError) {
-      console.error('Error fetching WhatsApp credentials:', credError);
+    if (orgError) {
+      console.error('Error fetching WhatsApp configuration:', orgError);
       return null;
     }
 
-    return credentials as WhatsAppCredentials;
+    if (!org || !org.whatsapp_is_active || !org.whatsapp_config) {
+      return null;
+    }
+
+    return {
+      provider: org.whatsapp_provider as WhatsAppProvider || 'meta',
+      config: org.whatsapp_config as WhatsAppConfig,
+      isActive: org.whatsapp_is_active,
+      phoneNumber: org.whatsapp_phone_number,
+      businessName: org.whatsapp_business_name,
+      organizationId,
+    };
   } catch (error) {
     console.error('Error in getWhatsAppCredentials:', error);
     return null;
@@ -102,7 +119,147 @@ function buildTemplateComponents(
 }
 
 /**
- * Sends a WhatsApp template message using Meta's Graph API
+ * Sends WhatsApp message via Meta Cloud API
+ */
+async function sendMetaWhatsAppMessage(
+  config: MetaWhatsAppConfig,
+  recipientPhone: string,
+  templateName: string,
+  templateLanguage: string,
+  parameters?: SendWhatsAppMessageParams['parameters']
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    // Validate phone number format (remove spaces, ensure + prefix)
+    let formattedPhone = recipientPhone.replace(/\s/g, '');
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+' + formattedPhone;
+    }
+    // Remove + for Meta API (it doesn't accept + prefix)
+    formattedPhone = formattedPhone.replace('+', '');
+
+    // Build template message payload
+    const components = buildTemplateComponents(parameters);
+
+    const messagePayload: WhatsAppTemplateMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: {
+          code: templateLanguage,
+        },
+        ...(components && { components }),
+      },
+    };
+
+    // Send request to Meta's Graph API
+    const apiUrl = `https://graph.facebook.com/v18.0/${config.phoneNumberId}/messages`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      body: JSON.stringify(messagePayload),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      const errorData = responseData as WhatsAppAPIError;
+      return {
+        success: false,
+        error: errorData.error.message || 'Failed to send WhatsApp message',
+      };
+    }
+
+    const successData = responseData as WhatsAppAPIResponse;
+    const messageId = successData.messages[0]?.id;
+
+    return {
+      success: true,
+      messageId,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    };
+  }
+}
+
+/**
+ * Sends WhatsApp message via Whatstool.business API
+ */
+async function sendWhatstoolWhatsAppMessage(
+  config: WhatstoolConfig,
+  recipientPhone: string,
+  templateId: string,
+  parameters?: SendWhatsAppMessageParams['parameters']
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    // Validate phone number format (remove spaces, ensure no + prefix)
+    let formattedPhone = recipientPhone.replace(/\s/g, '');
+    if (formattedPhone.startsWith('+')) {
+      formattedPhone = formattedPhone.substring(1);
+    }
+
+    // Build body_text_variables from parameters (pipe-separated)
+    let bodyTextVariables = '';
+    if (parameters && Object.keys(parameters).length > 0) {
+      const values = Object.entries(parameters)
+        .filter(([_, value]) => value !== undefined && value !== '')
+        .map(([_, value]) => value);
+      bodyTextVariables = values.join('|');
+    }
+
+    // Build request payload
+    const messagePayload = {
+      template_id: templateId,
+      body_text_variables: bodyTextVariables,
+    };
+
+    // Send request to Whatstool API
+    const apiUrl = `https://developers.whatstool.business/v2/messages/${config.channelNumber}/${formattedPhone}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+      },
+      body: JSON.stringify(messagePayload),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: responseData.message || 'Failed to send WhatsApp message via Whatstool',
+      };
+    }
+
+    // Whatstool may return a message ID in the response
+    const messageId = responseData.message_id || responseData.id;
+
+    return {
+      success: true,
+      messageId,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    };
+  }
+}
+
+/**
+ * Sends a WhatsApp template message using the configured provider
  * @param params - Message parameters including recipient, template, and variables
  * @returns Result with success status and message ID or error
  */
@@ -120,98 +277,86 @@ export async function sendWhatsAppMessage(
       };
     }
 
-    // 2. Fetch WhatsApp credentials
-    const credentials = await getWhatsAppCredentials(user.organizationId);
+    // 2. Fetch WhatsApp configuration
+    const whatsappConfig = await getWhatsAppCredentials(user.organizationId);
 
-    if (!credentials) {
+    if (!whatsappConfig) {
       return {
         success: false,
-        error: 'WhatsApp credentials not configured. Please contact your administrator.',
+        error: 'WhatsApp not configured. Please contact your administrator.',
       };
     }
 
-    // 3. Validate phone number format (remove spaces, ensure + prefix)
+    // 3. Validate phone number format
     let recipientPhone = params.recipientPhone.replace(/\s/g, '');
     if (!recipientPhone.startsWith('+')) {
       recipientPhone = '+' + recipientPhone;
     }
 
-    // Remove + for Meta API (it doesn't accept + prefix)
+    // 4. Send message based on provider
+    let result: { success: boolean; messageId?: string; error?: string };
+
+    if (whatsappConfig.provider === 'meta') {
+      const metaConfig = whatsappConfig.config as MetaWhatsAppConfig;
+      result = await sendMetaWhatsAppMessage(
+        metaConfig,
+        recipientPhone,
+        params.templateName,
+        params.templateLanguage || 'en',
+        params.parameters
+      );
+    } else if (whatsappConfig.provider === 'whatstool') {
+      const whatstoolConfig = whatsappConfig.config as WhatstoolConfig;
+      result = await sendWhatstoolWhatsAppMessage(
+        whatstoolConfig,
+        recipientPhone,
+        params.templateName, // templateName is used as template_id for Whatstool
+        params.parameters
+      );
+    } else {
+      return {
+        success: false,
+        error: 'Unsupported WhatsApp provider',
+      };
+    }
+
+    // 5. Format phone for logging
     const formattedPhone = recipientPhone.replace('+', '');
 
-    // 4. Build template message payload
-    const components = buildTemplateComponents(params.parameters);
-
-    const messagePayload: WhatsAppTemplateMessage = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: formattedPhone,
-      type: 'template',
-      template: {
-        name: params.templateName,
-        language: {
-          code: params.templateLanguage || 'en', // Default to English
-        },
-        ...(components && { components }),
-      },
-    };
-
-    // 5. Send request to Meta's Graph API
-    const apiUrl = `https://graph.facebook.com/v18.0/${credentials.phone_number_id}/messages`;
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${credentials.whatsapp_access_token}`,
-      },
-      body: JSON.stringify(messagePayload),
-    });
-
-    const responseData = await response.json();
-
-    // 6. Handle API errors
-    if (!response.ok) {
-      const errorData = responseData as WhatsAppAPIError;
-      console.error('WhatsApp API Error:', errorData);
-
-      // Log failed attempt
+    // 6. Log the attempt
+    if (!result.success) {
       await logWhatsAppMessage({
         leadId: params.leadId,
         recipientPhone: formattedPhone,
         templateName: params.templateName,
         status: 'failed',
-        errorMessage: errorData.error.message,
+        errorMessage: result.error,
         parameters: params.parameters,
-        organizationId: credentials.organization_id,
+        organizationId: whatsappConfig.organizationId,
         userId: user.userId,
       });
 
       return {
         success: false,
-        error: errorData.error.message || 'Failed to send WhatsApp message',
+        error: result.error || 'Failed to send WhatsApp message',
       };
     }
 
-    // 7. Success - extract message ID
-    const successData = responseData as WhatsAppAPIResponse;
-    const messageId = successData.messages[0]?.id;
-
-    // 8. Log successful send
+    // 7. Log successful send
     const logId = await logWhatsAppMessage({
       leadId: params.leadId,
       recipientPhone: formattedPhone,
       templateName: params.templateName,
       status: 'sent',
-      messageId,
+      messageId: result.messageId,
       parameters: params.parameters,
-      organizationId: credentials.organization_id,
+      organizationId: whatsappConfig.organizationId,
       userId: user.userId,
     });
 
     return {
       success: true,
-      messageId,
+      messageId: result.messageId,
       logId,
     };
   } catch (error) {
@@ -288,8 +433,11 @@ export async function isWhatsAppConfigured(): Promise<boolean> {
  */
 export async function getWhatsAppStatus(): Promise<{
   configured: boolean;
+  provider?: WhatsAppProvider;
+  config?: any;
   businessName?: string;
   phoneNumber?: string;
+  isActive?: boolean;
 }> {
   const user = await getUserFromCookie();
 
@@ -303,10 +451,26 @@ export async function getWhatsAppStatus(): Promise<{
     return { configured: false };
   }
 
+  // Return metadata without sensitive tokens
+  const sanitizedConfig = credentials.provider === 'meta'
+    ? {
+        phoneNumberId: (credentials.config as MetaWhatsAppConfig).phoneNumberId,
+        wabaId: (credentials.config as MetaWhatsAppConfig).wabaId,
+        selectedTemplate: (credentials.config as MetaWhatsAppConfig).selectedTemplate,
+      }
+    : credentials.provider === 'whatstool'
+    ? {
+        channelNumber: (credentials.config as WhatstoolConfig).channelNumber,
+      }
+    : {};
+
   return {
     configured: true,
-    businessName: credentials.business_name || undefined,
-    phoneNumber: credentials.phone_number || undefined,
+    provider: credentials.provider,
+    config: sanitizedConfig,
+    businessName: credentials.businessName || undefined,
+    phoneNumber: credentials.phoneNumber || undefined,
+    isActive: credentials.isActive,
   };
 }
 
@@ -315,12 +479,11 @@ export async function getWhatsAppStatus(): Promise<{
  * Only accessible by admins/owners
  */
 export async function saveWhatsAppCredentials(data: {
-  whatsapp_access_token: string;
-  phone_number_id: string;
-  waba_id: string;
-  phone_number?: string;
-  business_name?: string;
-  is_active: boolean;
+  provider: WhatsAppProvider;
+  config: WhatsAppConfig;
+  phoneNumber?: string;
+  businessName?: string;
+  isActive: boolean;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await getUserFromCookie();
@@ -334,22 +497,21 @@ export async function saveWhatsAppCredentials(data: {
       return { success: false, error: 'Only admins can configure WhatsApp credentials' };
     }
 
-    // Upsert credentials (insert or update if exists)
-    const { error: upsertError } = await supabaseAdmin
-      .from('whatsapp_credentials')
-      .upsert(
-        {
-          organization_id: user.organizationId,
-          ...data,
-        },
-        {
-          onConflict: 'organization_id',
-        }
-      );
+    // Update organization with WhatsApp configuration
+    const { error: updateError } = await supabaseAdmin
+      .from('organizations')
+      .update({
+        whatsapp_provider: data.provider,
+        whatsapp_config: data.config,
+        whatsapp_is_active: data.isActive,
+        whatsapp_phone_number: data.phoneNumber,
+        whatsapp_business_name: data.businessName,
+      })
+      .eq('id', user.organizationId);
 
-    if (upsertError) {
-      console.error('Error saving WhatsApp credentials:', upsertError);
-      return { success: false, error: upsertError.message };
+    if (updateError) {
+      console.error('Error saving WhatsApp credentials:', updateError);
+      return { success: false, error: updateError.message };
     }
 
     return { success: true };
