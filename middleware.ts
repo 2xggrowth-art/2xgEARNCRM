@@ -43,7 +43,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
     pathname.includes('/favicon.ico') ||
-    pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/)
+    pathname.includes('/manifest.json') ||
+    pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|json)$/)
   ) {
     if (isDev) console.log('  ✅ Static file, skipping auth');
     return NextResponse.next();
