@@ -3,12 +3,24 @@ import bcrypt from 'bcryptjs';
 import { JWTPayload } from './types';
 import { logger } from './logger';
 
-// Validate required environment variables
-if (!process.env.JWT_SECRET) {
-  throw new Error('CRITICAL: JWT_SECRET environment variable is required but not set. Application cannot start without it.');
+// Get JWT_SECRET with validation
+function getJWTSecret(): string {
+  const secret = process.env.JWT_SECRET;
+
+  // During build, allow placeholder for compilation
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return secret || 'build-time-placeholder-secret';
+  }
+
+  // At runtime, require valid secret
+  if (!secret) {
+    throw new Error('CRITICAL: JWT_SECRET environment variable is required but not set. Application cannot start without it.');
+  }
+
+  return secret;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = getJWTSecret();
 const JWT_EXPIRES_IN = '7d';
 const BCRYPT_ROUNDS = 10;
 
