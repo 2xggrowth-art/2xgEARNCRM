@@ -13,12 +13,16 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
 const publicRoutes = [
   '/login',
   '/customer',
+  '/offers',
   '/api/auth/login',
   '/api/auth/request-otp',
   '/api/auth/verify-otp',
   '/api/auth/register',
   '/api/customers',
   '/api/organization/logo',
+  '/api/offers/lead',
+  '/api/offers/spin',
+  '/api/offers/settings',
 ];
 
 export async function middleware(request: NextRequest) {

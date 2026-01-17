@@ -192,3 +192,81 @@ export interface LeadFormData {
   purchase_timeline?: PurchaseTimeline;
   notTodayReason?: NotTodayReason;
 }
+
+// Offer Lead types for QR Code Customer Capture System
+export interface OfferLead {
+  id: string;
+  organization_id: string;
+  sales_rep_id: string;
+  customer_name: string;
+  phone: string;
+  address?: string | null;
+  locality?: string | null;
+  prize_won?: string | null;
+  coupon_code?: string | null;
+  coupon_expires_at?: string | null;
+  redeemed: boolean;
+  redeemed_at?: string | null;
+  converted_to_lead_id?: string | null;
+  converted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SpinPrize {
+  label: string;
+  probability: number;
+  color: string;
+  textColor?: string;
+  disabled?: boolean; // If true, prize shows on wheel but won't be selected
+}
+
+export interface OfferFormData {
+  name: string;
+  phone: string;
+  locality: string;
+  address?: string;
+}
+
+export interface SpinResult {
+  prize: string;
+  couponCode: string;
+  expiresAt: string;
+}
+
+// Bengaluru localities for address dropdown
+export const BENGALURU_LOCALITIES = [
+  'Koramangala',
+  'Indiranagar',
+  'Whitefield',
+  'HSR Layout',
+  'Jayanagar',
+  'BTM Layout',
+  'Electronic City',
+  'Marathahalli',
+  'Banashankari',
+  'Malleshwaram',
+  'JP Nagar',
+  'Hebbal',
+  'Yelahanka',
+  'Rajajinagar',
+  'Basavanagudi',
+  'Bellandur',
+  'Sarjapur',
+  'Silk Board',
+  'Bommanahalli',
+  'Kengeri',
+  'Other'
+] as const;
+
+export type BengaluruLocality = typeof BENGALURU_LOCALITIES[number];
+
+// Spin wheel prize configuration
+export const SPIN_PRIZES: SpinPrize[] = [
+  { label: '₹500 OFF', probability: 0.10, color: '#FF6B6B', textColor: '#FFFFFF' },
+  { label: '₹100 OFF', probability: 0.35, color: '#4ECDC4', textColor: '#FFFFFF' },
+  { label: '15 Accessories + 1 Gift FREE', probability: 0.15, color: '#45B7D1', textColor: '#FFFFFF' },
+  { label: '₹1000 OFF Next Purchase', probability: 0.05, color: '#96CEB4', textColor: '#FFFFFF' },
+  { label: '₹200 OFF', probability: 0.20, color: '#FFEAA7', textColor: '#333333' },
+  { label: 'Try Again', probability: 0.15, color: '#DFE6E9', textColor: '#333333' }
+];

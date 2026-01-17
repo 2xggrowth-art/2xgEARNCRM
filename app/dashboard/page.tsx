@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LeadWithDetails } from '@/lib/types';
+import { LeadWithDetails, OfferLead } from '@/lib/types';
+import QRCode from 'react-qr-code';
 
 // Force dynamic rendering - don't prerender this page
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,9 @@ function DashboardContent() {
   const [showSEMModal, setShowSEMModal] = useState(false);
   const [showPromotionModal, setShowPromotionModal] = useState(false);
   const [semCommitmentAccepted, setSemCommitmentAccepted] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [pendingOffers, setPendingOffers] = useState<OfferLead[]>([]);
+  const [customBaseUrl, setCustomBaseUrl] = useState('');
 
   useEffect(() => {
     // Check if redirected with success
@@ -41,7 +45,26 @@ function DashboardContent() {
 
     fetchLeads();
     fetchOrganizationLogo();
+    fetchPendingOffers();
   }, [searchParams]);
+
+  const fetchPendingOffers = async () => {
+    try {
+      console.log('[Dashboard] Fetching pending offers...');
+      const response = await fetch('/api/offers/pending');
+      const data = await response.json();
+      console.log('[Dashboard] Pending offers response:', data);
+
+      if (data.success) {
+        console.log('[Dashboard] Setting pending offers:', data.data?.length || 0, 'items');
+        setPendingOffers(data.data || []);
+      } else {
+        console.error('[Dashboard] Pending offers error:', data.error);
+      }
+    } catch (error) {
+      console.error('[Dashboard] Error fetching pending offers:', error);
+    }
+  };
 
   const fetchLeads = async () => {
     try {
@@ -113,6 +136,20 @@ function DashboardContent() {
     document.cookie = 'user=; path=/; max-age=0';
     localStorage.removeItem('user');
     router.push('/login');
+  };
+
+  // Helper to get the correct URL for QR code (handles local network testing)
+  const getQrUrl = () => {
+    if (typeof window === 'undefined' || !user) return '';
+    
+    // If manual override is provided (for localhost testing)
+    if (customBaseUrl) {
+      const url = customBaseUrl.startsWith('http') ? customBaseUrl : `http://${customBaseUrl}`;
+      return `${url.replace(/\/$/, '')}/offers?rep=${user.id}`;
+    }
+    
+    // Otherwise use the current window origin
+    return `${window.location.origin}/offers?rep=${user.id}`;
   };
 
   if (loading) {
@@ -211,8 +248,61 @@ function DashboardContent() {
           >
             6. REPORTS
           </button>
+
+          {/* Button 7: Get Offers QR */}
+          <button
+            onClick={() => setShowQRModal(true)}
+            className="bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg py-3 px-6 font-semibold hover:from-pink-600 hover:to-rose-600 shadow-md text-left"
+          >
+            7. GET OFFERS (QR)
+          </button>
         </div>
       </div>
+
+      {/* Pending Offer Leads Section */}
+      {pendingOffers.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 pb-4">
+          <div className="bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900 flex items-center">
+                <span className="w-2 h-2 bg-pink-500 rounded-full mr-2 animate-pulse"></span>
+                New Offer Leads ({pendingOffers.length})
+              </h3>
+              <span className="text-xs text-gray-500">From QR scans - Mark as Win/Lost</span>
+            </div>
+            <div className="space-y-2">
+              {pendingOffers.map((offer) => (
+                <div
+                  key={offer.id}
+                  className="bg-white rounded-lg p-3 flex items-center justify-between shadow-sm border border-pink-100"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{offer.customer_name}</span>
+                      {offer.prize_won && offer.prize_won !== 'Try Again' && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                          {offer.prize_won}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500 flex items-center gap-3">
+                      <span>{offer.phone}</span>
+                      {offer.locality && <span>• {offer.locality}</span>}
+                      <span>• {new Date(offer.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/lead/new/from-offer?id=${offer.id}`)}
+                    className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    Convert to Lead
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters and Search */}
       <div className="max-w-7xl mx-auto px-4 pb-4">
@@ -522,6 +612,68 @@ function DashboardContent() {
               <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
               <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal for Customer Offers */}
+      {showQRModal && user && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 text-center">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Customer Offers</h2>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4 text-sm">
+              Let customers scan this QR code to unlock exclusive offers!
+            </p>
+
+            {/* QR Code */}
+            <div className="bg-white p-4 rounded-lg inline-block mb-4 border-2 border-gray-100">
+              <QRCode
+                value={getQrUrl()}
+                size={200}
+                level="H"
+              />
+            </div>
+
+            <p className="text-xs text-gray-500 mb-1">
+              Scan to win discounts, free accessories, and more!
+            </p>
+
+            {/* Localhost Helper Input */}
+            {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+              <div className="mb-3 text-left">
+                <label className="block text-xs text-gray-500 mb-1">
+                  Testing on phone? Enter Network URL:
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. http://192.168.1.5:3000"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  onChange={(e) => setCustomBaseUrl(e.target.value)}
+                />
+              </div>
+            )}
+            
+            <p className="text-xs text-gray-400 mb-4 break-all font-mono bg-gray-50 p-2 rounded select-all">
+              {getQrUrl()}
+            </p>
+
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-lg py-3 px-4 font-semibold"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
