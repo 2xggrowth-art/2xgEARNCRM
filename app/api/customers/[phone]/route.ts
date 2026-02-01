@@ -54,7 +54,7 @@ export async function GET(
     const winCount = leads.filter(l => l.status === 'win').length;
     const lostCount = leads.filter(l => l.status === 'lost').length;
     const totalValue = leads.reduce((sum, lead) => {
-      return sum + (lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0));
+      return sum + (lead.status === 'win' ? (parseFloat(lead.sale_price) || 0) : (parseFloat(lead.deal_size) || 0));
     }, 0);
 
     // Format leads with additional details
