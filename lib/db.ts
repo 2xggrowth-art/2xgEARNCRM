@@ -156,8 +156,10 @@ class QueryBuilder {
     const plainCols: string[] = [];
 
     for (const part of parts) {
+      // Normalize whitespace: collapse newlines/spaces so "categories (\n  name\n)" becomes "categories(name)"
+      const normalized = part.replace(/\s+/g, ' ').trim();
       // Check for relation pattern: table(cols) or table!fk(cols)
-      const relationMatch = part.match(/^(\w+)(?:!(\w+))?\(([^)]+)\)$/);
+      const relationMatch = normalized.match(/^(\w+)(?:!(\w+))?\s*\(\s*([^)]+?)\s*\)$/);
       if (relationMatch) {
         const [, relTable, fkHint, relCols] = relationMatch;
         const cols = relCols.split(',').map(c => c.trim());
