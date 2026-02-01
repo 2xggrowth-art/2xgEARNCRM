@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform data to include category name at top level
-    const transformedLeads = leads.map((lead: any) => ({
+    const transformedLeads = (leads || []).map((lead: any) => ({
       ...lead,
       category_name: lead.categories?.name || 'Unknown',
       model_name: lead.models?.name || (lead.status === 'win' ? 'N/A' : 'Unknown'),

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Format the data
-    const formattedLeads = leads.map((lead: any) => ({
+    const formattedLeads = (leads || []).map((lead: any) => ({
       ...lead,
       category_name: lead.categories?.name || 'Unknown',
     }));
