@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse, LeadStatus } from '@/lib/types';
-import { calculateSaleCommission, updateMonthlyTargetProgress, getCurrentMonth } from '@/lib/incentive-calculator';
 
 export async function POST(request: NextRequest) {
   try {
@@ -120,24 +119,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Calculate commission for this sale
-      const commissionResult = await calculateSaleCommission(price, categoryId, organizationId);
-
-      // Calculate review deadline (8 days from now)
-      const reviewDeadline = new Date();
-      reviewDeadline.setDate(reviewDeadline.getDate() + 8);
-
       leadData = {
         ...leadData,
         invoice_no: invoiceNo.trim(),
         sale_price: price,
         review_status: 'pending', // Initialize as pending for WIN leads
-        // 2XG Earn: Review tracking fields
-        review_sent_at: new Date().toISOString(), // Review request sent immediately
-        review_deadline: reviewDeadline.toISOString(), // 8 days to get review
-        // 2XG Earn: Commission fields
-        commission_rate_applied: commissionResult.effective_rate,
-        commission_amount: commissionResult.commission_amount,
         // Set Lost fields to null for Win leads
         deal_size: null,
         model_id: null,
@@ -145,11 +131,7 @@ export async function POST(request: NextRequest) {
         not_today_reason: null,
       };
 
-      console.log('Creating Win lead with commission:', {
-        price,
-        commission_rate: commissionResult.effective_rate,
-        commission_amount: commissionResult.commission_amount,
-      });
+      console.log('Creating Win lead:', { price });
     }
 
     // LOST FLOW VALIDATION & DATA
@@ -260,16 +242,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Lead created successfully:', lead.id);
-
-    // Update monthly target progress for win leads
-    if (status === 'win') {
-      try {
-        await updateMonthlyTargetProgress(userId, organizationId, getCurrentMonth());
-      } catch (targetError) {
-        console.error('Error updating monthly target:', targetError);
-        // Don't fail the lead creation for this
-      }
-    }
 
     return NextResponse.json<APIResponse>(
       {
