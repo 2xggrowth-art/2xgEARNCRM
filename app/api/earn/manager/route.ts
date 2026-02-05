@@ -81,9 +81,9 @@ export async function GET(request: NextRequest) {
       pending_count: pendingIncentives?.length || 0,
       approved_count: allIncentives?.filter((i) => i.status === 'approved').length || 0,
       paid_count: allIncentives?.filter((i) => i.status === 'paid').length || 0,
-      total_gross: allIncentives?.reduce((sum, i) => sum + (i.gross_commission || 0), 0) || 0,
-      total_net: allIncentives?.reduce((sum, i) => sum + (i.net_incentive || 0), 0) || 0,
-      total_penalties: allIncentives?.reduce((sum, i) => sum + (i.penalty_amount || 0), 0) || 0,
+      total_gross: allIncentives?.reduce((sum, i) => sum + Number(i.gross_commission || 0), 0) || 0,
+      total_net: allIncentives?.reduce((sum, i) => sum + Number(i.net_incentive || 0), 0) || 0,
+      total_penalties: allIncentives?.reduce((sum, i) => sum + Number(i.penalty_amount || 0), 0) || 0,
       disputed_penalties_count: disputedPenalties?.length || 0,
     };
 

@@ -66,7 +66,8 @@ export async function GET(request: NextRequest) {
 
     // Calculate stats
     const salesCount = sales?.length || 0;
-    const totalSales = sales?.reduce((sum, s) => sum + (s.sale_price || 0), 0) || 0;
+    // Ensure numeric addition (PostgreSQL returns DECIMAL as strings)
+    const totalSales = sales?.reduce((sum, s) => sum + Number(s.sale_price || 0), 0) || 0;
     const targetAmount = target?.target_amount || DEFAULT_MONTHLY_TARGET;
     const achievementPercentage = targetAmount > 0 ? (totalSales / targetAmount) * 100 : 0;
     const qualifies = totalSales >= targetAmount;

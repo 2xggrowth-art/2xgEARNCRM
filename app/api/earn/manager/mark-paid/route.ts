@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totalPaid = incentives.reduce((sum, i) => sum + (i.final_approved_amount || 0), 0);
+    const totalPaid = incentives.reduce((sum, i) => sum + Number(i.final_approved_amount || 0), 0);
 
     return NextResponse.json<APIResponse>({
       success: true,

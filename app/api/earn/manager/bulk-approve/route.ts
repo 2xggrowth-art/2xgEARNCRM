@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     const errorCount = results.filter((r) => r.status === 'error').length;
     const totalApproved = results
       .filter((r) => r.status === 'approved')
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
+      .reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
     return NextResponse.json<APIResponse>({
       success: true,
