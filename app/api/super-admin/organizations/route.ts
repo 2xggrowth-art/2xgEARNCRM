@@ -5,13 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 import { requirePermission, apiResponse, getRequestBody } from '@/lib/middleware';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 /**
  * GET - List all organizations (Super Admin only)
@@ -25,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch all organizations with user count
-    const { data: organizations, error } = await supabase
+    const { data: organizations, error } = await supabaseAdmin
       .from('organizations')
       .select(`
         id,
@@ -42,12 +38,12 @@ export async function GET(request: NextRequest) {
     // Get user counts for each organization
     const orgsWithCounts = await Promise.all(
       (organizations || []).map(async (org) => {
-        const { count: userCount } = await supabase
+        const { count: userCount } = await supabaseAdmin
           .from('users')
           .select('*', { count: 'exact', head: true })
           .eq('organization_id', org.id);
 
-        const { count: leadCount } = await supabase
+        const { count: leadCount } = await supabaseAdmin
           .from('leads')
           .select('*', { count: 'exact', head: true })
           .eq('organization_id', org.id);
@@ -106,7 +102,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Check if phone already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('phone', adminPhone)
@@ -117,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create organization
-    const { data: organization, error: orgError } = await supabase
+    const { data: organization, error: orgError } = await supabaseAdmin
       .from('organizations')
       .insert({
         name,
@@ -133,7 +129,7 @@ export async function POST(request: NextRequest) {
     const pinHash = await bcrypt.hash(adminPin, 10);
 
     // Create manager user for the organization
-    const { data: adminUser, error: userError } = await supabase
+    const { data: adminUser, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
         phone: adminPhone,
@@ -147,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     if (userError) {
       // Rollback: delete organization
-      await supabase.from('organizations').delete().eq('id', organization.id);
+      await supabaseAdmin.from('organizations').delete().eq('id', organization.id);
       throw userError;
     }
 
@@ -160,7 +156,7 @@ export async function POST(request: NextRequest) {
       'Kids',
     ];
 
-    const { error: categoryError } = await supabase.from('categories').insert(
+    const { error: categoryError } = await supabaseAdmin.from('categories').insert(
       defaultCategories.map((categoryName) => ({
         organization_id: organization.id,
         name: categoryName,

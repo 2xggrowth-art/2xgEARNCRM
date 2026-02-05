@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +8,7 @@ export async function GET(request: Request) {
     if (!userId) return NextResponse.json({ success: false, error: 'No User ID' }, { status: 401 });
 
     // Simplified query: No joins, just raw lead data
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leads')
       .select('id, customer_name, customer_phone, invoice_no, sale_price, incentive_amount, review_status')
       .eq('sales_rep_id', userId)
