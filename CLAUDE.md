@@ -2,188 +2,124 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build and Development Commands
+## Commands
 
 ```bash
-npm run dev      # Start development server (Next.js 16 with Turbopack)
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+npm run dev          # Development server on localhost:3000
+npm run build        # Production build (standalone output for Docker)
+npm run start        # Run production server
+npm run lint         # Run ESLint
 ```
 
-## Environment Setup
+No test framework is configured. Database migrations are SQL files in `migrations/`.
 
-Required environment variables in `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=<supabase-url>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
-JWT_SECRET=<secret-for-jwt-signing>
-SMS_PROVIDER=console  # or 'twilio'
-```
+## Architecture
 
-Generate PIN hash for manual user creation:
-```bash
-node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('1234', 10).then(console.log);"
-```
+**Multi-tenant Lead CRM** built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, and **self-hosted PostgreSQL**.
 
-## Architecture Overview
+### CRITICAL: Database Layer
 
-### Tech Stack
-- **Frontend**: Next.js 16.1.1 (App Router), React 19, Tailwind CSS v3
-- **Backend**: Next.js API Routes (in `app/api/`)
-- **Database**: Supabase (PostgreSQL with RLS)
-- **Auth**: Custom JWT authentication with 4-digit PIN (NOT Supabase Auth)
+We use a **custom PostgreSQL wrapper** (`lib/db.ts`) that provides a Supabase-compatible API but connects directly to PostgreSQL using the `pg` driver.
 
-### Role Hierarchy (4 levels)
+**DO NOT:**
+- Import `@supabase/supabase-js` anywhere
+- Add Supabase SDK to package.json
+- Delete or modify `lib/db.ts`, `lib/supabase.ts`, or `lib/env-validation.ts`
 
-| Role | Level | Dashboard | Capabilities |
-|------|-------|-----------|--------------|
-| `super_admin` | 4 | `/super-admin/dashboard` | System-wide: create orgs, manage all users |
-| `manager` | 3 | `/manager/dashboard` | Org-level: manage team, view team leads |
-| `staff` | 2 | `/staff/dashboard` | View assigned leads, create leads |
-| `sales_rep` | 1 | `/dashboard` | Create and view own leads only |
-
-### Authentication Flow
-
-1. User submits phone + PIN to `/api/auth/login`
-2. API verifies PIN hash with bcrypt, generates JWT
-3. JWT stored in `auth_token` cookie, user data in `user` cookie
-4. Middleware (`middleware.ts`) validates cookies on protected routes
-5. User context passed to API routes via headers: `x-user-id`, `x-user-role`, `x-organization-id`
-
-### Key Directories
-
-```
-app/
-├── api/                    # API routes (backend)
-│   ├── auth/               # Login, register, OTP endpoints
-│   ├── admin/              # Admin-only endpoints (leads, team, org)
-│   ├── manager/            # Manager team management
-│   ├── super-admin/        # Super admin org/stats endpoints
-│   └── leads/              # Lead CRUD operations
-├── dashboard/              # Sales rep dashboard
-├── admin/dashboard/        # Admin dashboard
-├── manager/dashboard/      # Manager dashboard
-└── super-admin/dashboard/  # Super admin dashboard
-
-lib/
-├── supabase.ts             # Supabase clients (supabase, supabaseAdmin)
-├── auth.ts                 # JWT, PIN hashing, validation helpers
-├── permissions.ts          # Role permissions and hierarchy helpers
-├── types.ts                # TypeScript type definitions
-└── middleware.ts           # Auth middleware helpers
-
-migrations/                 # SQL migration files for Supabase
-```
-
-### Lead System
-
-Two lead types with different form flows:
-
-**Win Lead (3 steps)**: Customer info → Category → Invoice/Sale price → QR code success screen
-**Lost Lead (4 steps)**: Customer info → Category → Deal size/Model → Timeline/Reason
-
-Key fields:
-- Win: `invoice_no` (unique), `sale_price`, `review_status`
-- Lost: `deal_size`, `model_id`, `purchase_timeline`, `not_today_reason`, `lead_rating`
-
-### Database Constraints
-
-The `users.role` column has a CHECK constraint. When changing roles:
-```sql
-ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD CONSTRAINT users_role_check
-CHECK (role IN ('super_admin', 'manager', 'staff', 'sales_rep', 'admin'));
-```
-
-The `users.organization_id` must be nullable for super_admin users (they don't belong to any org).
-
-## Critical Patterns
-
-### API Route Pattern
+**ALWAYS:**
 ```typescript
-// app/api/example/route.ts
 import { supabaseAdmin } from '@/lib/supabase';
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function GET(request: NextRequest) {
-  // Get user context from middleware headers
-  const userId = request.headers.get('x-user-id');
-  const userRole = request.headers.get('x-user-role');
-  const organizationId = request.headers.get('x-organization-id');
-
-  // Always use supabaseAdmin for server-side operations (bypasses RLS)
-  const { data, error } = await supabaseAdmin
-    .from('table')
-    .select('*');
-
-  return NextResponse.json({ success: true, data });
-}
 ```
 
-### Permission Check Pattern
-```typescript
-import { hasPermission, checkPermission } from '@/lib/permissions';
-import { UserRole } from '@/lib/types';
+### Authentication & Middleware
 
-// In API route:
-const userRole = request.headers.get('x-user-role') as UserRole;
-const check = checkPermission(userRole, 'manage_team');
-if (!check.authorized) {
-  return NextResponse.json({ success: false, error: check.error }, { status: 403 });
-}
+Phone + 4-digit PIN login → JWT (7-day expiry) stored in `auth_token` cookie. `middleware.ts` validates JWT on every request and injects headers: `x-user-id`, `x-user-role`, `x-organization-id`. API routes read these headers instead of doing their own auth.
+
+Public routes (no auth): `/login`, `/register`, `/offers/*`, `/api/auth/*`, `/api/offers/*`, `/api/organization/logo/*`.
+
+### Role Hierarchy
+
+Four roles defined in `lib/permissions.ts`:
+- `super_admin` (4) → all orgs, all users
+- `manager` (3) → org settings, team management
+- `staff` (2) → limited admin, lead creation
+- `sales_rep` (1) → own leads only
+
+Permission checks: `hasPermission(role, permission)`, `canManageUser(managerRole, targetRole)`.
+
+### Multi-Tenant Isolation
+
+Every database query MUST filter by `organization_id` (from JWT payload). The `supabaseAdmin` client (from `lib/supabase.ts`) is used server-side.
+
+### API Response Pattern
+
+All API routes return `APIResponse<T>` format: `{ success, data?, error?, message? }`. Extract user context from request headers set by middleware, not from cookies or JWT directly.
+
+### Key Modules
+
+- `lib/db.ts` — **PostgreSQL query builder** (Supabase-compatible API)
+- `lib/supabase.ts` — Re-exports db.ts as `supabaseAdmin`
+- `lib/types.ts` — All TypeScript interfaces (User, Lead, Organization, etc.)
+- `lib/permissions.ts` — Role hierarchy, permission matrix, access control helpers
+- `lib/auth.ts` — JWT creation/verification, PIN hashing with bcrypt
+- `lib/logger.ts` — Production-safe logging
+- `lib/env-validation.ts` — Validates DATABASE_URL and JWT_SECRET on startup
+- `lib/incentive-calculator.ts` — 2XG EARN incentive calculation logic
+
+### Lead Workflow
+
+Leads have two terminal states: `win` (requires invoiceNo, salePrice) or `lost` (requires dealSize, modelId, purchaseTimeline, notTodayReason, leadRating 1-5). Multi-step form in `components/LeadForm/`.
+
+### 2XG EARN Incentive System
+
+Commission-based incentive tracking with:
+- Category-based commission rates
+- Monthly targets and achievement tracking
+- Streak bonuses (7/14/30 day)
+- Penalty deductions
+- Team pool distribution
+- Manager approval workflow
+
+API routes in `/api/earn/*`.
+
+### QR Code Spin Wheel
+
+Customer scans QR → `/offers?rep=<id>` → enters details → `/offers/spin` → prize selected by admin-configured probabilities.
+
+### WhatsApp Integration
+
+Multi-provider support (`meta`, `whatstool`, `other`) configured per organization. Provider config stored as JSONB in `organizations.whatsapp_config`.
+
+## Environment Variables
+
+Required:
+```
+DATABASE_URL=postgresql://user:password@host:port/database
+JWT_SECRET=your-secret-key
 ```
 
-### Public Routes (no auth required)
-Defined in `middleware.ts`:
-- `/login`, `/customer`
-- `/api/auth/*`, `/api/customers/*`, `/api/organization/logo`
+See `.env.example` for full template.
 
-## Common Issues
+## Deployment
 
-### "Invalid role" database error
-The database constraint doesn't include the role. Run the SQL above to update the constraint.
+Deployed on **Coolify (OVH)** via Docker. DNS for `leadcrm.2xg.in` points to OVH at `51.195.46.40`. Database is **self-hosted PostgreSQL** in Docker container on same server.
 
-### "supabaseUrl is required" error
-Environment variables not loaded. Ensure `.env.local` exists and restart dev server.
+### Protected Files (DO NOT DELETE)
 
-### Login fails after user creation
-PIN hash may be wrong. Regenerate with bcrypt command and update user's `pin_hash` column.
+| File | Purpose |
+|------|---------|
+| `lib/db.ts` | PostgreSQL query builder |
+| `lib/supabase.ts` | Re-exports db.ts |
+| `lib/env-validation.ts` | Env var validation |
+| `Dockerfile` | Production build |
+| `postcss.config.mjs` | Tailwind CSS 4 |
+| `middleware.ts` | JWT auth |
 
-### Manager can't see team members
-Verify team members have `manager_id` set to the manager's user ID.
+## Developer Guide
 
-## Database Migrations
+See `DEVELOPER_SETUP.md` for full onboarding instructions.
 
-Run migrations in Supabase SQL Editor in order:
-1. `migrations/00-initial-schema.sql` - Base tables and RLS
-2. `migrations/phase-2.1-role-hierarchy.sql` - Role hierarchy system
-3. `migrations/add-incentive-fields.sql` - Incentive tracking
-
-## Test Users
-
-| Role | Phone | PIN | Notes |
-|------|-------|-----|-------|
-| Super Admin | 9999999999 | 1234 | Create manually in Supabase |
-| Manager | 8888888888 | 5678 | Created via super admin |
-| Sales Rep | 7777777777 | 1111 | Created via manager |
-
-## Custom Agents
-
-Specialized agents are available in `.claude/agents/`:
-
-| Agent | Purpose | When to Use |
-|-------|---------|-------------|
-| `backend` | Server-side API & database | API routes, business logic |
-| `frontend` | Client-side React & pages | UI components, pages |
-| ↳ `frontend-mobile` | Mobile-first UI | Phone-optimized interfaces |
-| ↳ `frontend-web` | Desktop/tablet UI | Dashboards, data tables |
-| `db-migration` | Create SQL migrations | Adding tables, columns, constraints |
-| `api-route` | Generate API routes | Creating new endpoints |
-| `permission-audit` | Audit permissions | Security review |
-| `test-data` | Set up test data | QA testing |
-| `component-gen` | Generate React components | UI development |
-| `deploy-check` | Pre-deploy verification | Before production deployment |
-
-See `.claude/agents/README.md` for detailed usage.
+Before pushing, run:
+```bash
+./scripts/pre-push-check.sh
+```

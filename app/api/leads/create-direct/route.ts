@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
+import { pool } from '@/lib/db';
 import { APIResponse } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
@@ -69,116 +71,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use raw SQL to bypass PostgREST schema cache issues
-    console.log('Creating lead with raw SQL...');
+    // Find or create the model
+    logger.info('Creating lead with direct SQL...');
 
-    // First, find or create the model using raw SQL
-    const { data: modelResult, error: modelCheckError } = await supabaseAdmin.rpc(
-      'exec_sql',
-      {
-        sql: `
-          WITH model_insert AS (
-            INSERT INTO models (organization_id, category_id, name)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (category_id, name) DO UPDATE SET name = EXCLUDED.name
-            RETURNING id
-          )
-          SELECT id FROM model_insert;
-        `,
-        params: [organizationId, categoryId, modelName.trim()],
-      }
+    const modelResult = await pool.query(
+      `WITH model_insert AS (
+        INSERT INTO models (organization_id, category_id, name)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (category_id, name) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+      )
+      SELECT id FROM model_insert`,
+      [organizationId, categoryId, modelName.trim()]
     );
 
-    if (modelCheckError) {
-      console.error('Error with model SQL:', modelCheckError);
+    const modelId = modelResult.rows[0]?.id;
 
-      // Fallback: Try using the ORM method
-      const { data: existingModel } = await supabaseAdmin
-        .from('models')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('category_id', categoryId)
-        .eq('name', modelName.trim())
-        .single();
-
-      let modelId: string;
-
-      if (existingModel) {
-        modelId = existingModel.id;
-      } else {
-        const { data: newModel, error: modelError } = await supabaseAdmin
-          .from('models')
-          .insert({
-            organization_id: organizationId,
-            category_id: categoryId,
-            name: modelName.trim(),
-          })
-          .select('id')
-          .single();
-
-        if (modelError) {
-          console.error('Error creating model:', modelError);
-          return NextResponse.json<APIResponse>(
-            { success: false, error: 'Failed to create model' },
-            { status: 500 }
-          );
-        }
-
-        modelId = newModel.id;
-      }
-
-      // Create lead with the model ID
-      const { data: lead, error: leadError } = await supabaseAdmin.rpc('exec_sql', {
-        sql: `
-          INSERT INTO leads (
-            organization_id,
-            sales_rep_id,
-            customer_name,
-            customer_phone,
-            category_id,
-            model_id,
-            deal_size,
-            purchase_timeline,
-            not_today_reason
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING *;
-        `,
-        params: [
-          organizationId,
-          userId,
-          customerName.trim(),
-          customerPhone,
-          categoryId,
-          modelId,
-          parseFloat(dealSize),
-          purchaseTimeline,
-          purchaseTimeline !== 'today' ? notTodayReason : null,
-        ],
-      });
-
-      if (leadError) {
-        console.error('Error creating lead with SQL:', leadError);
-        return NextResponse.json<APIResponse>(
-          { success: false, error: 'Failed to create lead' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json<APIResponse>({
-        success: true,
-        message: 'Lead created successfully',
-        data: lead,
-      });
+    if (!modelId) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Failed to create or find model' },
+        { status: 500 }
+      );
     }
+
+    // Create the lead
+    const leadResult = await pool.query(
+      `INSERT INTO leads (
+        organization_id, sales_rep_id, customer_name, customer_phone,
+        status, category_id, model_id, deal_size, purchase_timeline, not_today_reason
+      )
+      VALUES ($1, $2, $3, $4, 'lost', $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [
+        organizationId,
+        userId,
+        customerName.trim(),
+        customerPhone,
+        categoryId,
+        modelId,
+        parseFloat(dealSize),
+        purchaseTimeline,
+        purchaseTimeline !== 'today' ? notTodayReason : null,
+      ]
+    );
 
     return NextResponse.json<APIResponse>({
       success: true,
-      message: 'Lead creation in progress',
+      message: 'Lead created successfully',
+      data: leadResult.rows[0],
     });
 
   } catch (error) {
-    console.error('Create lead error:', error);
+    logger.error('Create lead error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

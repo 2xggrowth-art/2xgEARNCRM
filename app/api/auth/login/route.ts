@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken, isValidPhone, isValidPIN, verifyPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

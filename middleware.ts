@@ -1,32 +1,44 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
+
+// Note: Cannot import logger here as middleware runs in Edge runtime
+// Use conditional logging based on environment
+const isDev = process.env.NODE_ENV === 'development';
+
+// JWT secret for verification (must be set in environment)
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
 
 // Define public routes that don't require authentication
 const publicRoutes = [
   '/login',
   '/customer',
+  '/offers',
   '/api/auth/login',
   '/api/auth/request-otp',
   '/api/auth/verify-otp',
   '/api/auth/register',
   '/api/customers',
   '/api/organization/logo',
+  '/api/offers/lead',
+  '/api/offers/spin',
+  '/api/offers/settings',
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  console.log('🔵 Middleware START for:', pathname);
+  if (isDev) console.log('🔵 Middleware START for:', pathname);
 
   // Allow root path
   if (pathname === '/') {
-    console.log('  ✅ Root path, skipping auth');
+    if (isDev) console.log('  ✅ Root path, skipping auth');
     return NextResponse.next();
   }
 
   // Allow public routes (exact match or startsWith for auth routes)
   if (publicRoutes.some((route) => pathname === route || pathname.startsWith(route))) {
-    console.log('  ✅ Public route, skipping auth');
+    if (isDev) console.log('  ✅ Public route, skipping auth');
     return NextResponse.next();
   }
 
@@ -35,9 +47,10 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
     pathname.includes('/favicon.ico') ||
-    pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/)
+    pathname.includes('/manifest.json') ||
+    pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|json)$/)
   ) {
-    console.log('  ✅ Static file, skipping auth');
+    if (isDev) console.log('  ✅ Static file, skipping auth');
     return NextResponse.next();
   }
 
@@ -45,10 +58,10 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const userCookie = request.cookies.get('user')?.value;
 
-  console.log('  🍪 Cookies found:', { hasToken: !!token, hasUserCookie: !!userCookie });
+  if (isDev) console.log('  🍪 Cookies found:', { hasToken: !!token, hasUserCookie: !!userCookie });
 
   if (!token || !userCookie) {
-    console.log('  ❌ Missing auth cookies');
+    if (isDev) console.log('  ❌ Missing auth cookies');
     // Redirect to login if accessing protected page routes
     if (!pathname.startsWith('/api')) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -61,28 +74,48 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  // Parse user data from cookie and add to headers for API routes
+  // Verify JWT token and extract user data
   try {
-    const user = JSON.parse(userCookie);
+    // Verify the JWT token
+    const { payload } = await jwtVerify(token, JWT_SECRET);
 
-    console.log('Middleware - Parsed user from cookie:', {
-      pathname,
-      userId: user.id,
-      userRole: user.role,
-      organizationId: user.organizationId,
-    });
+    // Also validate the user cookie structure matches the JWT payload
+    const userFromCookie = JSON.parse(userCookie);
 
-    // Set headers on the request
+    // Security: Ensure user cookie data matches JWT payload to prevent tampering
+    if (
+      userFromCookie.id !== payload.userId ||
+      userFromCookie.role !== payload.role ||
+      userFromCookie.organizationId !== payload.organizationId
+    ) {
+      if (isDev) {
+        console.error('User cookie data does not match JWT payload - possible tampering');
+      }
+      throw new Error('Session data mismatch');
+    }
+
+    if (isDev) {
+      console.log('Middleware - Authenticated user:', {
+        pathname,
+        userId: payload.userId,
+        userRole: payload.role,
+        organizationId: payload.organizationId,
+      });
+    }
+
+    // Set headers on the request using verified JWT data
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', user.id || '');
-    requestHeaders.set('x-user-role', user.role || '');
-    requestHeaders.set('x-organization-id', user.organizationId || '');
+    requestHeaders.set('x-user-id', payload.userId as string || '');
+    requestHeaders.set('x-user-role', payload.role as string || '');
+    requestHeaders.set('x-organization-id', payload.organizationId as string || '');
 
-    console.log('Middleware - Headers being set:', {
-      'x-user-id': requestHeaders.get('x-user-id'),
-      'x-user-role': requestHeaders.get('x-user-role'),
-      'x-organization-id': requestHeaders.get('x-organization-id'),
-    });
+    if (isDev) {
+      console.log('Middleware - Headers being set:', {
+        'x-user-id': requestHeaders.get('x-user-id'),
+        'x-user-role': requestHeaders.get('x-user-role'),
+        'x-organization-id': requestHeaders.get('x-organization-id'),
+      });
+    }
 
     // Use NextResponse.next() with custom headers
     const response = NextResponse.next({
@@ -93,15 +126,27 @@ export function middleware(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Middleware error parsing user cookie:', error, 'Cookie value:', userCookie);
-    // Invalid user cookie - redirect to login
-    if (!pathname.startsWith('/api')) {
-      return NextResponse.redirect(new URL('/login', request.url));
+    // JWT verification failed or cookie data mismatch
+    // Always log errors, but don't expose sensitive details in production
+    if (isDev) {
+      console.error('Middleware authentication error:', error);
+    } else {
+      console.error('Authentication failed');
     }
-    return NextResponse.json(
-      { success: false, error: 'Invalid session' },
-      { status: 401 }
-    );
+
+    // Clear invalid cookies
+    const response = pathname.startsWith('/api')
+      ? NextResponse.json(
+          { success: false, error: 'Invalid or expired session' },
+          { status: 401 }
+        )
+      : NextResponse.redirect(new URL('/login', request.url));
+
+    // Clear the invalid cookies
+    response.cookies.delete('auth_token');
+    response.cookies.delete('user');
+
+    return response;
   }
 }
 

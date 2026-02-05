@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isValidPhone, isValidName, isValidPIN, hashPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching team:', error);
+      logger.error('Error fetching team:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to fetch team members' },
         { status: 500 }
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       data: users,
     });
   } catch (error) {
-    console.error('Get team error:', error);
+    logger.error('Get team error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -49,14 +50,14 @@ export async function POST(request: NextRequest) {
     const organizationId = request.headers.get('x-organization-id');
     const userRole = request.headers.get('x-user-role');
 
-    console.log('Team API - Headers:', {
+    logger.info('Team API - Headers:', {
       organizationId,
       userRole,
       allHeaders: Object.fromEntries(request.headers.entries()),
     });
 
     if (!organizationId || (userRole !== 'admin' && userRole !== 'manager')) {
-      console.error('Team API - Unauthorized:', { organizationId, userRole });
+      logger.error('Team API - Unauthorized:', { organizationId, userRole });
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Unauthorized - Missing organization or not admin' },
         { status: 401 }
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError) {
-      console.error('Error creating user:', userError);
+      logger.error('Error creating user:', userError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to create user' },
         { status: 500 }
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Add team member error:', error);
+    logger.error('Add team member error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -1,8 +1,33 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { JWTPayload } from './types';
+import { logger } from './logger';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// Lazy-load JWT_SECRET to avoid runtime errors during build
+let _jwtSecret: string | null = null;
+
+function getJWTSecret(): string {
+  if (_jwtSecret !== null) {
+    return _jwtSecret;
+  }
+
+  const secret = process.env.JWT_SECRET;
+
+  // During build, allow placeholder for compilation
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    _jwtSecret = secret || 'build-time-placeholder-secret';
+    return _jwtSecret;
+  }
+
+  // At runtime, require valid secret
+  if (!secret) {
+    throw new Error('CRITICAL: JWT_SECRET environment variable is required but not set. Application cannot start without it.');
+  }
+
+  _jwtSecret = secret;
+  return _jwtSecret;
+}
+
 const JWT_EXPIRES_IN = '7d';
 const BCRYPT_ROUNDS = 10;
 
@@ -10,7 +35,7 @@ const BCRYPT_ROUNDS = 10;
  * Generate a JWT token for a user
  */
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, getJWTSecret(), { expiresIn: JWT_EXPIRES_IN });
 }
 
 /**
@@ -18,10 +43,10 @@ export function generateToken(payload: JWTPayload): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, getJWTSecret()) as JWTPayload;
     return decoded;
   } catch (error) {
-    console.error('JWT verification failed:', error);
+    logger.error('JWT verification failed:', error);
     return null;
   }
 }

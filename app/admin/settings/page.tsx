@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Organization, Category } from '@/lib/types';
 import WhatsAppSettings from '@/components/WhatsAppSettings';
+import OfferSettings from '@/components/OfferSettings';
 import {
   DndContext,
   closestCenter,
@@ -524,6 +525,9 @@ export default function AdminSettingsPage() {
             <p className="text-gray-500 text-center py-4">No categories yet</p>
           )}
         </div>
+
+        {/* QR Code Offer Settings */}
+        <OfferSettings />
 
         {/* WhatsApp API Settings */}
         <WhatsAppSettings />

@@ -4,13 +4,9 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 import { requirePermission, apiResponse } from '@/lib/middleware';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(request: NextRequest) {
   // Check permission
@@ -21,30 +17,30 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get total counts
-    const { count: totalOrganizations } = await supabase
+    const { count: totalOrganizations } = await supabaseAdmin
       .from('organizations')
       .select('*', { count: 'exact', head: true });
 
-    const { count: totalUsers } = await supabase
+    const { count: totalUsers } = await supabaseAdmin
       .from('users')
       .select('*', { count: 'exact', head: true });
 
-    const { count: totalLeads } = await supabase
+    const { count: totalLeads } = await supabaseAdmin
       .from('leads')
       .select('*', { count: 'exact', head: true });
 
-    const { count: winLeads } = await supabase
+    const { count: winLeads } = await supabaseAdmin
       .from('leads')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'win');
 
-    const { count: lostLeads } = await supabase
+    const { count: lostLeads } = await supabaseAdmin
       .from('leads')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'lost');
 
     // Get total revenue
-    const { data: revenueData } = await supabase
+    const { data: revenueData } = await supabaseAdmin
       .from('leads')
       .select('sale_price')
       .eq('status', 'win');
@@ -55,7 +51,7 @@ export async function GET(request: NextRequest) {
     ) || 0;
 
     // Get users by role
-    const { data: usersByRole } = await supabase
+    const { data: usersByRole } = await supabaseAdmin
       .from('users')
       .select('role')
       .order('role');
@@ -69,18 +65,18 @@ export async function GET(request: NextRequest) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const { count: newLeadsThisWeek } = await supabase
+    const { count: newLeadsThisWeek } = await supabaseAdmin
       .from('leads')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', sevenDaysAgo.toISOString());
 
-    const { count: newUsersThisWeek } = await supabase
+    const { count: newUsersThisWeek } = await supabaseAdmin
       .from('users')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', sevenDaysAgo.toISOString());
 
     // Get top organizations by leads
-    const { data: orgLeadCounts } = await supabase
+    const { data: orgLeadCounts } = await supabaseAdmin
       .from('leads')
       .select('organization_id, organizations(name)')
       .order('created_at', { ascending: false });

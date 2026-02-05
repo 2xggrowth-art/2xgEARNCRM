@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const cutoffDate = thirtyDaysAgo.toISOString();
 
-    console.log(`[Auto-Expire] Checking for Lost leads older than ${cutoffDate} that haven't converted`);
+    logger.info(`[Auto-Expire] Checking for Lost leads older than ${cutoffDate} that haven't converted`);
 
     // Find all Lost leads that:
     // 1. Status is 'lost'
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       .not('other_reason', 'like', '%Auto-expired%'); // Don't re-process already expired leads
 
     if (fetchError) {
-      console.error('[Auto-Expire] Error fetching expired leads:', fetchError);
+      logger.error('[Auto-Expire] Error fetching expired leads:', fetchError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to fetch expired leads' },
         { status: 500 }
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!expiredLeads || expiredLeads.length === 0) {
-      console.log('[Auto-Expire] No leads to expire');
+      logger.info('[Auto-Expire] No leads to expire');
       return NextResponse.json<APIResponse>({
         success: true,
         message: 'No leads to expire',
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`[Auto-Expire] Found ${expiredLeads.length} leads to mark as auto-expired`);
+    logger.info(`[Auto-Expire] Found ${expiredLeads.length} leads to mark as auto-expired`);
 
     // Update all expired leads with auto-expire note
     // We keep them as 'lost' but update the reason to indicate they never followed up
@@ -79,14 +80,14 @@ export async function GET(request: NextRequest) {
       .select();
 
     if (updateError) {
-      console.error('[Auto-Expire] Error updating expired leads:', updateError);
+      logger.error('[Auto-Expire] Error updating expired leads:', updateError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to update expired leads' },
         { status: 500 }
       );
     }
 
-    console.log(`[Auto-Expire] Successfully expired ${updatedLeads?.length || 0} leads`);
+    logger.info(`[Auto-Expire] Successfully expired ${updatedLeads?.length || 0} leads`);
 
     return NextResponse.json<APIResponse>({
       success: true,
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Auto-Expire] Cron job error:', error);
+    logger.error('[Auto-Expire] Cron job error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

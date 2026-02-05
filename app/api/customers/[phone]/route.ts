@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -34,7 +35,7 @@ export async function GET(
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching customer history:', error);
+      logger.error('Error fetching customer history:', error);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to fetch customer history' },
         { status: 500 }
@@ -53,7 +54,7 @@ export async function GET(
     const winCount = leads.filter(l => l.status === 'win').length;
     const lostCount = leads.filter(l => l.status === 'lost').length;
     const totalValue = leads.reduce((sum, lead) => {
-      return sum + (lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0));
+      return sum + (lead.status === 'win' ? (parseFloat(lead.sale_price) || 0) : (parseFloat(lead.deal_size) || 0));
     }, 0);
 
     // Format leads with additional details
@@ -81,7 +82,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Customer history error:', error);
+    logger.error('Customer history error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

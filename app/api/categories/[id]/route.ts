@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse } from '@/lib/types';
 
@@ -41,7 +42,7 @@ export async function DELETE(
       .eq('id', categoryId);
 
     if (deleteError) {
-      console.error('Error deleting category:', deleteError);
+      logger.error('Error deleting category:', deleteError);
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Failed to delete category' },
         { status: 500 }
@@ -53,7 +54,7 @@ export async function DELETE(
       message: 'Category deleted successfully',
     });
   } catch (error) {
-    console.error('Delete category error:', error);
+    logger.error('Delete category error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
