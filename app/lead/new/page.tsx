@@ -190,6 +190,7 @@ export default function NewLeadPage() {
           <WinSuccess
             invoiceNo={winStep3Data.invoiceNo}
             salePrice={winStep3Data.salePrice}
+            customerName={step1Data.name}
           />
         );
       }

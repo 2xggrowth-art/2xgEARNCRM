@@ -15,7 +15,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Lead CRM - Sales Portal",
   description: "Multi-tenant Lead CRM system for sales representatives",
-  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/2xg-logo.png", sizes: "any", type: "image/png" },

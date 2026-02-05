@@ -61,8 +61,9 @@ export async function POST(request: NextRequest) {
 
     if (orgError || !newOrg) {
       console.error('Error creating organization:', orgError);
+      const errorMessage = orgError?.message || 'Unknown error';
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'Failed to create organization' },
+        { success: false, error: `Failed to create organization: ${errorMessage}` },
         { status: 500 }
       );
     }
@@ -102,8 +103,20 @@ export async function POST(request: NextRequest) {
 
     if (userError || !newUser) {
       console.error('Error creating user:', userError);
+
+      // Rollback: Delete the organization and categories if user creation failed
+      try {
+        await supabaseAdmin.from('categories').delete().eq('organization_id', newOrg.id);
+        await supabaseAdmin.from('organizations').delete().eq('id', newOrg.id);
+        console.log('Rollback successful - deleted org:', newOrg.id);
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
+
+      // Include actual error message for debugging
+      const errorMessage = userError?.message || 'Unknown error creating user';
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'Failed to create user' },
+        { success: false, error: `Failed to create user: ${errorMessage}` },
         { status: 500 }
       );
     }

@@ -10,12 +10,13 @@ export async function GET(request: NextRequest) {
     let query = supabaseAdmin.from('organizations').select('logo_url');
 
     if (organizationId) {
-      query = query.eq('id', organizationId);
+      query = query.eq('id', organizationId).limit(1);
     } else {
       console.log('⚠️ No organization ID provided, fetching first organization logo');
+      query = query.limit(1);
     }
 
-    const { data: organization, error } = await query.single();
+    const { data: organizations, error } = await query;
 
     if (error) {
       console.error('Error fetching organization logo:', error);
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Get the first organization from the array
+    const organization = organizations && organizations.length > 0 ? organizations[0] : null;
 
     return NextResponse.json<APIResponse>({
       success: true,
