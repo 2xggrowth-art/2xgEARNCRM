@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken, isValidPhone, isValidName, isValidPIN, hashPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
@@ -61,9 +60,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (orgError || !newOrg) {
-      logger.error('Error creating organization:', orgError);
+      console.error('Error creating organization:', orgError);
+      const errorMessage = orgError?.message || 'Unknown error';
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'Failed to create organization' },
+        { success: false, error: `Failed to create organization: ${errorMessage}` },
         { status: 500 }
       );
     }
@@ -102,9 +102,21 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError || !newUser) {
-      logger.error('Error creating user:', userError);
+      console.error('Error creating user:', userError);
+
+      // Rollback: Delete the organization and categories if user creation failed
+      try {
+        await supabaseAdmin.from('categories').delete().eq('organization_id', newOrg.id);
+        await supabaseAdmin.from('organizations').delete().eq('id', newOrg.id);
+        console.log('Rollback successful - deleted org:', newOrg.id);
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
+
+      // Include actual error message for debugging
+      const errorMessage = userError?.message || 'Unknown error creating user';
       return NextResponse.json<APIResponse>(
-        { success: false, error: 'Failed to create user' },
+        { success: false, error: `Failed to create user: ${errorMessage}` },
         { status: 500 }
       );
     }
@@ -132,7 +144,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('Registration error:', error);
+    console.error('Registration error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

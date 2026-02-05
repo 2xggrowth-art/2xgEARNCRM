@@ -176,16 +176,24 @@ export default function AdminDashboardPage() {
   };
 
   const exportToCSV = (rep: SalesRepData) => {
-    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Review Status', 'Lead Score', 'Incentive', 'Date'];
+    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Review Status', 'Lead Score', 'Commission', 'Commission Rate', 'Date'];
     const rows = rep.leads.map((lead) => {
       const score = lead.status === 'lost' ? calculateLeadScore(lead) : 0;
       const category = lead.status === 'lost' ? getLeadScoreCategory(score) : null;
 
-      let incentiveText = '-';
-      if (lead.has_incentive === true && lead.incentive_amount) {
-        incentiveText = `Yes - ₹${lead.incentive_amount}`;
-      } else if (lead.has_incentive === false) {
-        incentiveText = 'No';
+      // Commission display for CSV export - ONLY for reviewed leads
+      let commissionText = '-';
+      if (lead.status === 'win') {
+        if (lead.review_status !== 'reviewed') {
+          // Not reviewed yet - no incentive
+          commissionText = '-';
+        } else if (lead.commission_amount) {
+          commissionText = `₹${lead.commission_amount} (Auto)`;
+        } else if (lead.has_incentive === true && lead.incentive_amount) {
+          commissionText = `₹${lead.incentive_amount} (Manual)`;
+        } else if (lead.has_incentive === false) {
+          commissionText = 'No';
+        }
       }
 
       return [
@@ -199,7 +207,8 @@ export default function AdminDashboardPage() {
         formatReason(lead),
         lead.status === 'win' ? (lead.review_status === 'reviewed' ? 'Reviewed' : lead.review_status === 'yet_to_review' ? 'Yet to Review' : 'Pending') : '-',
         lead.status === 'lost' ? `${category?.label} (${score})` : '-',
-        incentiveText,
+        commissionText,
+        lead.status === 'win' && lead.commission_rate_applied ? `${lead.commission_rate_applied}%` : '-',
         new Date(lead.created_at).toLocaleDateString('en-IN'),
       ];
     });
@@ -446,50 +455,71 @@ export default function AdminDashboardPage() {
     setFilteredSalesReps(result);
   }, [salesReps, filterStatus, filterRep, sortBy, searchQuery, dateFilter, customStartDate, customEndDate]);
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              {logoUrl && (
-                <div className="w-10 h-10 flex items-center justify-center">
-                  <img
-                    src={logoUrl}
-                    alt="Organization Logo"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-              )}
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                {user && <p className="text-sm text-gray-600">{user.name}</p>}
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-600 hover:underline"
-            >
-              Logout
-            </button>
-          </div>
+  // Calculate overall stats
+  const totalLeads = salesReps.reduce((sum, rep) => sum + rep.totalLeads, 0);
+  const totalWins = salesReps.reduce(
+    (sum, rep) => sum + rep.leads.filter(l => l.status === 'win').length,
+    0
+  );
+  const totalRevenue = salesReps.reduce(
+    (sum, rep) => sum + rep.leads.filter(l => l.status === 'win').reduce((s, l) => s + (l.sale_price || 0), 0),
+    0
+  );
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push('/admin/team')}
-              className="flex-1 bg-blue-600 text-white rounded-lg py-2 px-4 text-sm font-semibold hover:bg-blue-700"
-            >
-              Manage Team
-            </button>
-            <button
-              onClick={() => router.push('/admin/settings')}
-              className="flex-1 bg-gray-600 text-white rounded-lg py-2 px-4 text-sm font-semibold hover:bg-gray-700"
-            >
-              Settings
-            </button>
+  return (
+    <div className="min-h-screen bg-gray-100 pb-24">
+      {/* Gradient Header */}
+      <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 sticky top-0 z-40">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {logoUrl && (
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1">
+                <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+              </div>
+            )}
+            <div>
+              <p className="text-gray-400 text-xs">Admin Dashboard</p>
+              <h1 className="text-lg font-bold">Admin Panel</h1>
+            </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 bg-white/10 rounded-full text-sm hover:bg-white/20 transition-colors"
+            title="Logout"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
+      </div>
+
+      {/* Stats Cards - Mobile First */}
+      <div className="p-4 grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <p className="text-2xl font-bold text-blue-600">{salesReps.length}</p>
+          <p className="text-xs text-gray-500">Sales Reps</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <p className="text-2xl font-bold text-green-600">{totalLeads}</p>
+          <p className="text-xs text-gray-500">Total Leads</p>
+        </div>
+      </div>
+
+      {/* Quick Action Buttons - Mobile */}
+      <div className="px-4 pb-4 flex gap-2">
+        <button
+          onClick={() => router.push('/admin/team')}
+          className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 px-4 text-sm font-semibold hover:bg-blue-700"
+        >
+          Manage Team
+        </button>
+        <button
+          onClick={() => router.push('/admin/settings')}
+          className="flex-1 bg-gray-600 text-white rounded-lg py-2.5 px-4 text-sm font-semibold hover:bg-gray-700"
+        >
+          Settings
+        </button>
       </div>
 
       {/* Content */}
@@ -798,11 +828,37 @@ export default function AdminDashboardPage() {
                                 <LeadScoreBadge lead={lead} />
                               </td>
                               <td className="px-4 py-3">
-                                {!isWin || lead.review_status === 'pending' || lead.review_status === 'yet_to_review' ? (
-                                  // Lost leads OR Win leads not yet reviewed - always show "No"
-                                  <span className="text-gray-500">No</span>
-                                ) : lead.has_incentive === null || lead.has_incentive === undefined ? (
-                                  // Initial state - show Yes/No buttons (Win leads with review_status === 'reviewed' only)
+                                {!isWin ? (
+                                  // Lost leads - no incentive
+                                  <span className="text-gray-400">-</span>
+                                ) : lead.review_status !== 'reviewed' ? (
+                                  // NOT REVIEWED YET - NO INCENTIVE (pending or yet_to_review)
+                                  <span className="text-gray-400">-</span>
+                                ) : lead.commission_amount ? (
+                                  // 2XG Earn: Show auto-calculated commission (ONLY if reviewed)
+                                  <div className="flex flex-col">
+                                    <span className="text-green-600 font-semibold">
+                                      ₹{lead.commission_amount.toLocaleString('en-IN')}
+                                    </span>
+                                    <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mt-1 inline-block w-fit">
+                                      Auto @ {lead.commission_rate_applied?.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                ) : lead.has_incentive === true && lead.incentive_amount ? (
+                                  // Manually set incentive (legacy)
+                                  <div className="flex flex-col">
+                                    <span className="text-green-600 font-semibold">
+                                      ₹{lead.incentive_amount.toLocaleString('en-IN')}
+                                    </span>
+                                    <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-1 inline-block w-fit">
+                                      Manual
+                                    </span>
+                                  </div>
+                                ) : lead.has_incentive === false ? (
+                                  // Explicitly marked as no incentive
+                                  <span className="text-gray-600">No</span>
+                                ) : (
+                                  // Reviewed but no commission calculated - show manual input option
                                   <div className="flex gap-2">
                                     <button
                                       onClick={async (e) => {
@@ -817,22 +873,15 @@ export default function AdminDashboardPage() {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedLead(lead);
-                                        setIncentiveAmount('');
+                                        // Pre-fill with calculated commission if available
+                                        setIncentiveAmount(lead.commission_amount?.toString() || '');
                                         setShowIncentiveModal(true);
                                       }}
                                       className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold"
                                     >
-                                      Yes
+                                      Set
                                     </button>
                                   </div>
-                                ) : lead.has_incentive === false ? (
-                                  // No incentive
-                                  <span className="text-gray-600">No</span>
-                                ) : (
-                                  // Show amount
-                                  <span className="text-green-600 font-semibold">
-                                    ₹{lead.incentive_amount?.toLocaleString('en-IN')}
-                                  </span>
                                 )}
                               </td>
                               <td className="px-4 py-3 text-gray-500">
@@ -868,7 +917,9 @@ export default function AdminDashboardPage() {
       {showIncentiveModal && selectedLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Set Incentive Amount</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              {selectedLead.commission_amount ? 'Override Commission' : 'Set Incentive Amount'}
+            </h3>
 
             <div className="space-y-3 mb-6">
               <div className="flex justify-between">
@@ -880,16 +931,29 @@ export default function AdminDashboardPage() {
                 <span className="font-semibold text-gray-900">{selectedLead.category_name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-900 font-medium">Amount:</span>
+                <span className="text-gray-900 font-medium">Sale Amount:</span>
                 <span className="font-semibold text-green-600">
                   ₹{(selectedLead.sale_price || 0).toLocaleString('en-IN')}
                 </span>
               </div>
+              {selectedLead.commission_amount && (
+                <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg">
+                  <span className="text-blue-800 font-medium">Auto-calculated Commission:</span>
+                  <div className="text-right">
+                    <span className="font-bold text-blue-700">
+                      ₹{selectedLead.commission_amount.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-xs text-blue-600 block">
+                      @ {selectedLead.commission_rate_applied?.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Incentive Amount
+                {selectedLead.commission_amount ? 'Override Amount (optional)' : 'Incentive Amount'}
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-gray-600 text-lg">₹</span>
@@ -897,11 +961,16 @@ export default function AdminDashboardPage() {
                   type="number"
                   value={incentiveAmount}
                   onChange={(e) => setIncentiveAmount(e.target.value)}
-                  placeholder="Enter amount"
+                  placeholder={selectedLead.commission_amount ? `Auto: ${selectedLead.commission_amount}` : 'Enter amount'}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
               </div>
+              {selectedLead.commission_amount && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Leave empty to use auto-calculated commission, or enter a different amount to override.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -917,7 +986,8 @@ export default function AdminDashboardPage() {
               </button>
               <button
                 onClick={async () => {
-                  const amount = parseFloat(incentiveAmount);
+                  // If no override amount entered and auto-commission exists, use auto-commission
+                  const amount = incentiveAmount ? parseFloat(incentiveAmount) : (selectedLead.commission_amount || 0);
                   if (!isNaN(amount) && amount > 0) {
                     const success = await handleIncentiveUpdate(selectedLead.id, true, amount);
                     if (success) {
@@ -931,7 +1001,7 @@ export default function AdminDashboardPage() {
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
               >
-                Confirm
+                {selectedLead.commission_amount && !incentiveAmount ? 'Use Auto Amount' : 'Confirm'}
               </button>
             </div>
           </div>
@@ -976,7 +1046,7 @@ export default function AdminDashboardPage() {
 
       {/* Undo Toast */}
       {showUndoToast && (
-        <div className="fixed bottom-6 right-6 z-50 transition-all duration-300 ease-in-out">
+        <div className="fixed bottom-24 right-6 z-50 transition-all duration-300 ease-in-out">
           <div className="bg-gray-900 text-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-4 min-w-[300px]">
             <svg
               className="w-6 h-6 text-green-400"
@@ -1006,6 +1076,49 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg pb-safe">
+        <div className="flex justify-around items-center h-16">
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            className="flex flex-col items-center p-2 text-gray-800"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="text-xs font-medium">Home</span>
+          </button>
+          <button
+            onClick={() => router.push('/admin/team')}
+            className="flex flex-col items-center p-2 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span className="text-xs">Team</span>
+          </button>
+          <button
+            onClick={() => router.push('/admin/settings')}
+            className="flex flex-col items-center p-2 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="text-xs">Settings</span>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center p-2 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="text-xs">Logout</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

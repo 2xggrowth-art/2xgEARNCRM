@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Step1Data, LeadStatus } from '@/lib/types';
 import Link from 'next/link';
 
@@ -16,6 +17,7 @@ interface ExistingCustomer {
 }
 
 export default function Step1({ initialData, onNext }: Step1Props) {
+  const router = useRouter();
   const [name, setName] = useState(initialData?.name || '');
   const [phone, setPhone] = useState(initialData?.phone || '');
   const [status, setStatus] = useState<LeadStatus>(initialData?.status || 'lost');
@@ -96,9 +98,23 @@ export default function Step1({ initialData, onNext }: Step1Props) {
   const totalSteps = status === 'win' ? 3 : 4;
 
   return (
-    <div className="flex flex-col h-full p-6">
-      <div className="mb-2 text-sm text-gray-500">Step 1/{totalSteps}</div>
-      <h2 className="text-2xl font-bold mb-6">Customer Details</h2>
+    <div className="flex flex-col h-full">
+      {/* Header with Back Button */}
+      <div className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-xl"
+        >
+          ←
+        </button>
+        <div>
+          <h1 className="font-bold text-lg">New Lead</h1>
+          <p className="text-xs text-gray-500">Step 1/{totalSteps}</p>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <h2 className="text-2xl font-bold mb-6">Customer Details</h2>
 
       <div className="mb-4">
         <label className="block text-gray-700 font-medium mb-2">
@@ -180,6 +196,7 @@ export default function Step1({ initialData, onNext }: Step1Props) {
             ✗ LOST
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

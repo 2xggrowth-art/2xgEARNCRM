@@ -1,6 +1,24 @@
 import { Pool, PoolConfig } from 'pg';
 
 // ============================================
+// Custom Error with Code (Supabase-compatible)
+// ============================================
+
+class PostgrestError extends Error {
+  code: string;
+  details: string | null;
+  hint: string | null;
+
+  constructor(message: string, code: string = 'PGRST000') {
+    super(message);
+    this.name = 'PostgrestError';
+    this.code = code;
+    this.details = null;
+    this.hint = null;
+  }
+}
+
+// ============================================
 // PostgreSQL Connection Pool
 // ============================================
 
@@ -88,6 +106,7 @@ interface WhereClause {
 interface OrderDef {
   column: string;
   ascending: boolean;
+  nullsFirst?: boolean;
 }
 
 interface SelectOptions {
@@ -95,7 +114,11 @@ interface SelectOptions {
   head?: boolean;
 }
 
-type Operation = 'select' | 'insert' | 'update' | 'delete';
+type Operation = 'select' | 'insert' | 'update' | 'delete' | 'upsert';
+
+interface UpsertOptions {
+  onConflict?: string;
+}
 
 class QueryBuilder {
   private _table = '';
@@ -108,6 +131,8 @@ class QueryBuilder {
   private _limitVal?: number;
   private _insertData?: any | any[];
   private _updateData?: any;
+  private _upsertData?: any | any[];
+  private _upsertOptions?: UpsertOptions;
   private _returning = false;
   private _returnColumns = '*';
 
@@ -216,6 +241,13 @@ class QueryBuilder {
     return this;
   }
 
+  upsert(data: any | any[], options?: UpsertOptions): QueryBuilder {
+    this._operation = 'upsert';
+    this._upsertData = data;
+    this._upsertOptions = options;
+    return this;
+  }
+
   eq(column: string, value: unknown): QueryBuilder {
     this._wheres.push({ column, op: '=', value });
     return this;
@@ -269,10 +301,11 @@ class QueryBuilder {
     return this;
   }
 
-  order(column: string, options?: { ascending?: boolean }): QueryBuilder {
+  order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): QueryBuilder {
     this._orders.push({
       column,
       ascending: options?.ascending ?? true,
+      nullsFirst: options?.nullsFirst,
     });
     return this;
   }
@@ -284,11 +317,15 @@ class QueryBuilder {
 
   // Terminal methods
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async single(): Promise<{ data: any | null; error: Error | null; count?: number }> {
+  async single(): Promise<{ data: any | null; error: PostgrestError | null; count?: number }> {
     const result = await this._execute();
-    if (result.error) return result;
+    if (result.error) {
+      const pgError = new PostgrestError(result.error.message, 'PGRST000');
+      return { data: null, error: pgError, count: result.count };
+    }
     if (!result.data || (Array.isArray(result.data) && result.data.length === 0)) {
-      return { data: null, error: new Error('No rows found'), count: result.count };
+      // PGRST116 is Supabase's "no rows found" code
+      return { data: null, error: new PostgrestError('No rows found', 'PGRST116'), count: result.count };
     }
     const row = Array.isArray(result.data) ? result.data[0] : result.data;
     return { data: row, error: null, count: result.count };
@@ -329,6 +366,8 @@ class QueryBuilder {
           return await this._executeUpdate(p);
         case 'delete':
           return await this._executeDelete(p);
+        case 'upsert':
+          return await this._executeUpsert(p);
         default:
           return { data: null, error: new Error(`Unknown operation: ${this._operation}`) };
       }
@@ -388,7 +427,13 @@ class QueryBuilder {
 
     // ORDER BY
     if (this._orders.length > 0) {
-      const orderParts = this._orders.map(o => `${this._table}.${o.column} ${o.ascending ? 'ASC' : 'DESC'}`);
+      const orderParts = this._orders.map(o => {
+        let orderStr = `${this._table}.${o.column} ${o.ascending ? 'ASC' : 'DESC'}`;
+        if (o.nullsFirst !== undefined) {
+          orderStr += o.nullsFirst ? ' NULLS FIRST' : ' NULLS LAST';
+        }
+        return orderStr;
+      });
       sql += ` ORDER BY ${orderParts.join(', ')}`;
     }
 
@@ -481,6 +526,50 @@ class QueryBuilder {
     sql += whereClause;
 
     sql += ' RETURNING *';
+
+    const result = await p.query(sql, params);
+    return { data: result.rows, error: null };
+  }
+
+  private async _executeUpsert(p: Pool): Promise<{ data: any[] | null; error: Error | null }> {
+    if (!this._upsertData) return { data: null, error: new Error('No upsert data') };
+
+    const rows = Array.isArray(this._upsertData) ? this._upsertData : [this._upsertData];
+    if (rows.length === 0) return { data: [], error: null };
+
+    const columns = Object.keys(rows[0]);
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    const valueSets: string[] = [];
+    for (const row of rows) {
+      const placeholders: string[] = [];
+      for (const col of columns) {
+        const val = row[col];
+        // Handle JSONB: serialize objects/arrays
+        if (val !== null && val !== undefined && typeof val === 'object' && !(val instanceof Date)) {
+          params.push(JSON.stringify(val));
+        } else {
+          params.push(val);
+        }
+        placeholders.push(`$${paramIdx++}`);
+      }
+      valueSets.push(`(${placeholders.join(', ')})`);
+    }
+
+    // Build ON CONFLICT clause
+    const conflictColumns = this._upsertOptions?.onConflict || 'id';
+    const conflictColumnsArray = conflictColumns.split(',').map(c => c.trim());
+
+    // Build SET clause for update (exclude conflict columns)
+    const updateColumns = columns.filter(col => !conflictColumnsArray.includes(col));
+    const updateSet = updateColumns.map(col => `${col} = EXCLUDED.${col}`).join(', ');
+
+    const returning = this._returning ? ` RETURNING ${this._returnColumns}` : ' RETURNING *';
+
+    let sql = `INSERT INTO ${this._table} (${columns.join(', ')}) VALUES ${valueSets.join(', ')}`;
+    sql += ` ON CONFLICT (${conflictColumns}) DO UPDATE SET ${updateSet}`;
+    sql += returning;
 
     const result = await p.query(sql, params);
     return { data: result.rows, error: null };

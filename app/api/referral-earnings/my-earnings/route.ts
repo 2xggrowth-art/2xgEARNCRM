@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import { supabaseAdmin as supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
+
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     if (!userId) return NextResponse.json({ success: false, error: 'No User ID' }, { status: 401 });
 
     // Simplified query: No joins, just raw lead data
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leads')
       .select('id, customer_name, customer_phone, invoice_no, sale_price, incentive_amount, review_status')
       .eq('sales_rep_id', userId)
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    logger.error('API Error:', err.message);
+    console.error('API Error:', err.message);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

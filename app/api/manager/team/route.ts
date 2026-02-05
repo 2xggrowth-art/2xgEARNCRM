@@ -5,7 +5,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase';
 import {
   requirePermission,
   apiResponse,
@@ -14,7 +14,7 @@ import {
 } from '@/lib/middleware';
 import { hashPIN, isValidPhone, isValidPIN, isValidName } from '@/lib/auth';
 import { canCreateUserWithRole, requiresManager } from '@/lib/permissions';
-import { supabaseAdmin as supabase } from '@/lib/supabase';
+
 
 /**
  * GET - Get manager's team members
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get all team members managed by this user
-    const { data: teamMembers, error } = await supabase
+    const { data: teamMembers, error } = await supabaseAdmin
       .from('users')
       .select('id, name, phone, role, created_at, last_login')
       .eq('manager_id', user.userId)
@@ -41,25 +41,25 @@ export async function GET(request: NextRequest) {
     // Get lead counts for each team member
     const teamWithStats = await Promise.all(
       (teamMembers || []).map(async (member) => {
-        const { count: totalLeads } = await supabase
+        const { count: totalLeads } = await supabaseAdmin
           .from('leads')
           .select('*', { count: 'exact', head: true })
           .eq('sales_rep_id', member.id);
 
-        const { count: winCount } = await supabase
+        const { count: winCount } = await supabaseAdmin
           .from('leads')
           .select('*', { count: 'exact', head: true })
           .eq('sales_rep_id', member.id)
           .eq('status', 'win');
 
-        const { data: revenueData } = await supabase
+        const { data: revenueData } = await supabaseAdmin
           .from('leads')
           .select('sale_price')
           .eq('sales_rep_id', member.id)
           .eq('status', 'win');
 
         const revenue = revenueData?.reduce(
-          (sum, lead) => sum + (parseFloat(lead.sale_price) || 0),
+          (sum, lead) => sum + (lead.sale_price || 0),
           0
         ) || 0;
 
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     return apiResponse.success(teamWithStats);
   } catch (error: any) {
-    logger.error('Error fetching team:', error);
+    console.error('Error fetching team:', error);
     return apiResponse.serverError(error.message);
   }
 }
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Check if phone already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('phone', phone)
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     const pinHash = await hashPIN(pin);
 
     // Create user
-    const { data: newUser, error: userError } = await supabase
+    const { data: newUser, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
         phone,
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       `${role === 'staff' ? 'Staff' : 'Sales Rep'} added successfully`
     );
   } catch (error: any) {
-    logger.error('Error adding team member:', error);
+    console.error('Error adding team member:', error);
     return apiResponse.serverError(error.message);
   }
 }

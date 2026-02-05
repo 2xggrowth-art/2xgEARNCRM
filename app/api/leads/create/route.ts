@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 import { APIResponse, LeadStatus } from '@/lib/types';
+import { calculateSaleCommission, updateMonthlyTargetProgress, getCurrentMonth } from '@/lib/incentive-calculator';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       leadRating, // 5-star rating (1-5)
     } = body;
 
-    logger.info('Creating lead with status:', status);
+    console.log('Creating lead with status:', status);
 
     // Common validation
     if (!customerName || customerName.trim().length < 2) {
@@ -120,11 +120,24 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Calculate commission for this sale
+      const commissionResult = await calculateSaleCommission(price, categoryId, organizationId);
+
+      // Calculate review deadline (8 days from now)
+      const reviewDeadline = new Date();
+      reviewDeadline.setDate(reviewDeadline.getDate() + 8);
+
       leadData = {
         ...leadData,
         invoice_no: invoiceNo.trim(),
         sale_price: price,
         review_status: 'pending', // Initialize as pending for WIN leads
+        // 2XG Earn: Review tracking fields
+        review_sent_at: new Date().toISOString(), // Review request sent immediately
+        review_deadline: reviewDeadline.toISOString(), // 8 days to get review
+        // 2XG Earn: Commission fields
+        commission_rate_applied: commissionResult.effective_rate,
+        commission_amount: commissionResult.commission_amount,
         // Set Lost fields to null for Win leads
         deal_size: null,
         model_id: null,
@@ -132,7 +145,11 @@ export async function POST(request: NextRequest) {
         not_today_reason: null,
       };
 
-      logger.info('Creating Win lead:', leadData);
+      console.log('Creating Win lead with commission:', {
+        price,
+        commission_rate: commissionResult.effective_rate,
+        commission_amount: commissionResult.commission_amount,
+      });
     }
 
     // LOST FLOW VALIDATION & DATA
@@ -173,7 +190,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (modelCheckError) {
-        logger.error('Error checking model:', modelCheckError);
+        console.error('Error checking model:', modelCheckError);
         return NextResponse.json<APIResponse>(
           { success: false, error: `Model check failed: ${modelCheckError.message}` },
           { status: 500 }
@@ -182,7 +199,7 @@ export async function POST(request: NextRequest) {
 
       if (existingModel) {
         modelId = existingModel.id;
-        logger.info('Using existing model:', modelId);
+        console.log('Using existing model:', modelId);
       } else {
         // Create new model
         const { data: newModel, error: modelError } = await supabaseAdmin
@@ -196,7 +213,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (modelError || !newModel) {
-          logger.error('Error creating model:', modelError);
+          console.error('Error creating model:', modelError);
           return NextResponse.json<APIResponse>(
             {
               success: false,
@@ -207,7 +224,7 @@ export async function POST(request: NextRequest) {
         }
 
         modelId = newModel.id;
-        logger.info('Created new model:', modelId);
+        console.log('Created new model:', modelId);
       }
 
       leadData = {
@@ -223,7 +240,7 @@ export async function POST(request: NextRequest) {
         sale_price: null,
       };
 
-      logger.info('Creating Lost lead:', leadData);
+      console.log('Creating Lost lead:', leadData);
     }
 
     // Create the lead
@@ -234,15 +251,25 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error || !lead) {
-      logger.error('Error creating lead:', error);
-      logger.error('Lead data attempted:', leadData);
+      console.error('Error creating lead:', error);
+      console.error('Lead data attempted:', leadData);
       return NextResponse.json<APIResponse>(
         { success: false, error: `Failed to create lead: ${error?.message || 'Unknown error'}` },
         { status: 500 }
       );
     }
 
-    logger.info('Lead created successfully:', lead.id);
+    console.log('Lead created successfully:', lead.id);
+
+    // Update monthly target progress for win leads
+    if (status === 'win') {
+      try {
+        await updateMonthlyTargetProgress(userId, organizationId, getCurrentMonth());
+      } catch (targetError) {
+        console.error('Error updating monthly target:', targetError);
+        // Don't fail the lead creation for this
+      }
+    }
 
     return NextResponse.json<APIResponse>(
       {
@@ -253,7 +280,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    logger.error('Create lead error:', error);
+    console.error('Create lead error:', error);
     return NextResponse.json<APIResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

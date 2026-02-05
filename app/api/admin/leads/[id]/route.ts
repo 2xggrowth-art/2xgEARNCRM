@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export async function PATCH(
@@ -67,7 +66,7 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      logger.error('Error updating lead incentive:', updateError);
+      console.error('Error updating lead incentive:', updateError);
       return NextResponse.json(
         { success: false, error: 'Failed to update incentive' },
         { status: 500 }
@@ -80,7 +79,7 @@ export async function PATCH(
       data: updatedLead,
     });
   } catch (error) {
-    logger.error('Error in PATCH /api/admin/leads/[id]:', error);
+    console.error('Error in PATCH /api/admin/leads/[id]:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -135,7 +134,7 @@ export async function DELETE(
       .eq('organization_id', organizationId);
 
     if (deleteError) {
-      logger.error('Error deleting lead:', deleteError);
+      console.error('Error deleting lead:', deleteError);
       return NextResponse.json(
         { success: false, error: 'Failed to delete lead' },
         { status: 500 }
@@ -147,7 +146,7 @@ export async function DELETE(
       message: 'Lead deleted successfully',
     });
   } catch (error) {
-    logger.error('Error in DELETE /api/admin/leads/[id]:', error);
+    console.error('Error in DELETE /api/admin/leads/[id]:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

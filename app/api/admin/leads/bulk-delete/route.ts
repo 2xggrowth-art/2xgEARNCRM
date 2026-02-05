@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -40,7 +39,7 @@ export async function POST(request: NextRequest) {
       .eq('organization_id', organizationId);
 
     if (fetchError) {
-      logger.error('Error fetching leads for verification:', fetchError);
+      console.error('Error fetching leads for verification:', fetchError);
       return NextResponse.json(
         { success: false, error: 'Failed to verify leads' },
         { status: 500 }
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
       .eq('organization_id', organizationId);
 
     if (deleteError) {
-      logger.error('Error bulk deleting leads:', deleteError);
+      console.error('Error bulk deleting leads:', deleteError);
       return NextResponse.json(
         { success: false, error: 'Failed to delete leads' },
         { status: 500 }
@@ -83,7 +82,7 @@ export async function POST(request: NextRequest) {
       deletedCount: leadIds.length,
     });
   } catch (error) {
-    logger.error('Error in POST /api/admin/leads/bulk-delete:', error);
+    console.error('Error in POST /api/admin/leads/bulk-delete:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

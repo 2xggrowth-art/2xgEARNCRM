@@ -4,14 +4,14 @@
  */
 
 import { NextRequest } from 'next/server';
-import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase';
 import {
   requirePermission,
   apiResponse,
   getRequestBody,
   getUserFromRequest,
 } from '@/lib/middleware';
-import { supabaseAdmin as supabase } from '@/lib/supabase';
+
 
 export async function POST(request: NextRequest) {
   // Check permission
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify the user exists and is in the same organization
-    const { data: targetUser, error: userError } = await supabase
+    const { data: targetUser, error: userError } = await supabaseAdmin
       .from('users')
       .select('id, role, organization_id')
       .eq('id', userId)
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the manager exists and is a manager role
-    const { data: manager, error: managerError } = await supabase
+    const { data: manager, error: managerError } = await supabaseAdmin
       .from('users')
       .select('id, role, organization_id')
       .eq('id', managerId)
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Assign manager
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('users')
       .update({ manager_id: managerId })
       .eq('id', userId);
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       'Manager assigned successfully'
     );
   } catch (error: any) {
-    logger.error('Error assigning manager:', error);
+    console.error('Error assigning manager:', error);
     return apiResponse.serverError(error.message);
   }
 }
