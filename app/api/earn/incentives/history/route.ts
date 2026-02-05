@@ -52,14 +52,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate totals
+    // Calculate totals (use Number() since PostgreSQL DECIMAL comes as strings)
     const totals = (incentives || []).reduce(
       (acc, inc) => ({
-        total_gross: acc.total_gross + (inc.gross_commission || 0),
-        total_bonuses: acc.total_bonuses + (inc.streak_bonus || 0) + (inc.review_bonus || 0),
-        total_penalties: acc.total_penalties + (inc.penalty_amount || 0),
+        total_gross: acc.total_gross + Number(inc.gross_commission || 0),
+        total_bonuses: acc.total_bonuses + Number(inc.streak_bonus || 0) + Number(inc.review_bonus || 0),
+        total_penalties: acc.total_penalties + Number(inc.penalty_amount || 0),
         total_paid:
-          acc.total_paid + (inc.status === 'paid' ? inc.final_approved_amount || inc.net_incentive || 0 : 0),
+          acc.total_paid + (inc.status === 'paid' ? Number(inc.final_approved_amount || inc.net_incentive || 0) : 0),
       }),
       { total_gross: 0, total_bonuses: 0, total_penalties: 0, total_paid: 0 }
     );

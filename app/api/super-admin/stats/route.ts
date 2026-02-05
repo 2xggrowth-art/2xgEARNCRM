@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'win');
 
     const totalRevenue = revenueData?.reduce(
-      (sum, lead) => sum + (lead.sale_price || 0),
+      (sum, lead) => sum + Number(lead.sale_price || 0),
       0
     ) || 0;
 
