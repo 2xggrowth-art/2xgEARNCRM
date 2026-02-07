@@ -132,11 +132,6 @@ export default function WinSuccess({ invoiceNo, salePrice, customerName = 'Custo
             Customer: <span className="font-bold">{customerName}</span>
           </p>
 
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-            <p className="text-sm text-green-800">
-              💰 You'll earn <span className="font-bold">₹10</span> bonus when customer completes the review!
-            </p>
-          </div>
 
           {/* Review Status */}
           {reviewStatus === 'pending' ? (
