@@ -248,49 +248,21 @@ export default function MyIncentivesPage() {
           </div>
         </div>
 
-        {/* Target Progress */}
-        {targetProgress && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Monthly Target</h2>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                targetProgress.qualifies_for_incentive
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {targetProgress.qualifies_for_incentive ? 'Qualified' : 'In Progress'}
-              </span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mb-4">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">
-                  {formatCurrency(targetProgress.achieved_amount)} of {formatCurrency(targetProgress.target_amount)}
-                </span>
-                <span className="font-medium text-gray-900">{targetProgress.achievement_percentage}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className={`h-3 rounded-full transition-all duration-500 ${
-                    targetProgress.qualifies_for_incentive ? 'bg-green-500' : 'bg-blue-500'
-                  }`}
-                  style={{ width: `${Math.min(parseFloat(targetProgress.achievement_percentage), 100)}%` }}
-                />
-              </div>
-            </div>
-
-            {!targetProgress.qualifies_for_incentive && targetProgress.days_remaining > 0 && (
-              <div className="bg-blue-50 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
-                  <span className="font-semibold">{formatCurrency(targetProgress.remaining_amount)}</span> more needed
-                  • <span className="font-semibold">{targetProgress.days_remaining}</span> days left
-                  • Need <span className="font-semibold">{formatCurrency(targetProgress.daily_rate_needed)}/day</span>
-                </p>
-              </div>
-            )}
+        {/* Monthly Target - Static */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Monthly Target</h2>
           </div>
-        )}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600">₹0</span>
+              <span className="font-medium text-gray-900">0%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="h-3 rounded-full bg-blue-500" style={{ width: '0%' }} />
+            </div>
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-4">
