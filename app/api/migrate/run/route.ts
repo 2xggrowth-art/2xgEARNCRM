@@ -1,18 +1,39 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 /**
- * GET /api/migrate/run
+ * POST /api/migrate/run
  * Run database migration to add missing columns for 2XG EARN incentive system
- * Visit: https://leadcrm.2xg.in/api/migrate/run
+ * Requires: super_admin role OR MIGRATION_SECRET header
  */
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
+    // Authentication: Check for super_admin role or migration secret
+    const userRole = request.headers.get('x-user-role');
+    const migrationSecret = request.headers.get('x-migration-secret');
+    const expectedSecret = process.env.MIGRATION_SECRET || process.env.JWT_SECRET;
+
+    const isAuthorized =
+      userRole === 'super_admin' ||
+      (migrationSecret && migrationSecret === expectedSecret);
+
+    if (!isAuthorized) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized. Requires super_admin role or valid migration secret.',
+      }, { status: 401 });
+    }
+
     console.log('Running 2XG EARN migration...');
 
-    // Use DATABASE_URL from environment or fallback
-    const databaseUrl = process.env.DATABASE_URL ||
-      'postgresql://lead_crm_user:LcRm2026_Pg_S3cure!@lead-crm-postgres:5432/lead_crm';
+    // Require DATABASE_URL - no hardcoded fallback
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      return NextResponse.json({
+        success: false,
+        error: 'DATABASE_URL environment variable is not set',
+      }, { status: 500 });
+    }
 
     const pool = new Pool({
       connectionString: databaseUrl,
@@ -30,6 +51,7 @@ export async function GET() {
     ];
 
     const results: string[] = [];
+    let failureCount = 0;
 
     for (const sql of migrations) {
       try {
@@ -39,6 +61,7 @@ export async function GET() {
       } catch (e: any) {
         const colName = sql.match(/ADD COLUMN IF NOT EXISTS (\w+)/)?.[1] || 'unknown';
         results.push(`✗ ${colName}: ${e.message}`);
+        failureCount++;
       }
     }
 
@@ -47,20 +70,16 @@ export async function GET() {
 
     console.log('Migration completed!');
 
+    const allSucceeded = failureCount === 0;
+
     return NextResponse.json({
-      success: true,
-      message: 'Migration completed! All columns added to leads table.',
+      success: allSucceeded,
+      message: allSucceeded
+        ? 'Migration completed! All columns added to leads table.'
+        : `Migration completed with ${failureCount} error(s).`,
       results,
-      columns_added: [
-        'review_sent_at',
-        'review_received_at',
-        'review_deadline',
-        'review_qualified',
-        'escalated_to_manager',
-        'commission_rate_applied',
-        'commission_amount',
-      ],
-    });
+    }, { status: allSucceeded ? 200 : 207 });
+
   } catch (error: any) {
     console.error('Migration error:', error);
     return NextResponse.json({
@@ -69,4 +88,9 @@ export async function GET() {
       hint: 'Make sure DATABASE_URL is set in environment variables',
     }, { status: 500 });
   }
+}
+
+// Also support GET for backward compatibility, but with same auth
+export async function GET(request: NextRequest) {
+  return POST(request);
 }
