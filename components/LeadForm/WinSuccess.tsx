@@ -155,8 +155,8 @@ export default function WinSuccess({ invoiceNo, salePrice, customerName = 'Custo
           ) : reviewStatus === 'reviewed' ? (
             <div className="bg-green-100 border border-green-300 rounded-xl p-4 text-center">
               <div className="text-4xl mb-2">🌟</div>
-              <p className="font-bold text-green-700">Review Bonus Added!</p>
-              <p className="text-green-600 text-2xl font-bold">+₹10</p>
+              <p className="font-bold text-green-700">Review Submitted!</p>
+              <p className="text-green-600 text-sm">Thank you for getting the review</p>
             </div>
           ) : (
             <div className="bg-gray-100 rounded-xl p-4">
@@ -214,7 +214,7 @@ export default function WinSuccess({ invoiceNo, salePrice, customerName = 'Custo
           className="btn-mobile w-full h-12 bg-yellow-500 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mb-3"
         >
           <span>⭐</span>
-          <span>Ask for Google Review (+₹10)</span>
+          <span>Ask for Google Review</span>
         </button>
 
         <button
