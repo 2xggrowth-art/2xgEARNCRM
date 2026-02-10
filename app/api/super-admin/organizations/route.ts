@@ -48,12 +48,12 @@ export async function GET(request: NextRequest) {
           .select('*', { count: 'exact', head: true })
           .eq('organization_id', org.id);
 
-        // Get manager details
+        // Get manager/admin details (register page assigns 'admin', create org assigns 'manager')
         const { data: manager } = await supabaseAdmin
           .from('users')
           .select('id, name, phone, role')
           .eq('organization_id', org.id)
-          .eq('role', 'manager')
+          .in('role', ['manager', 'admin'])
           .order('created_at', { ascending: true })
           .limit(1)
           .single();
