@@ -38,6 +38,12 @@ interface Organization {
   created_at: string;
   userCount: number;
   leadCount: number;
+  manager: {
+    id: string;
+    name: string;
+    phone: string;
+    role: string;
+  } | null;
 }
 
 export default function SuperAdminDashboard() {
@@ -134,6 +140,34 @@ export default function SuperAdminDashboard() {
     } catch (error) {
       console.error('Error creating organization:', error);
       alert('Failed to create organization');
+    }
+  };
+
+  const handleDeleteOrganization = async (org: Organization) => {
+    const confirmMsg = `Are you sure you want to delete "${org.name}"?\n\nThis will permanently delete:\n- All leads\n- All users\n- All categories\n- All associated data\n\nThis action cannot be undone.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/super-admin/organizations?id=${org.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert(data.message || 'Organization deleted successfully');
+        fetchData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+      alert('Failed to delete organization');
     }
   };
 
@@ -267,6 +301,9 @@ export default function SuperAdminDashboard() {
                     Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Manager
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Contact
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
@@ -278,6 +315,9 @@ export default function SuperAdminDashboard() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Created
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -285,6 +325,16 @@ export default function SuperAdminDashboard() {
                   <tr key={org.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{org.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {org.manager ? (
+                        <div>
+                          <div className="font-medium text-gray-900">{org.manager.name}</div>
+                          <div className="text-gray-500">{org.manager.phone}</div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">No manager</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {org.contact_number || '-'}
@@ -301,6 +351,14 @@ export default function SuperAdminDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {new Date(org.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => handleDeleteOrganization(org)}
+                        className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium text-xs"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}

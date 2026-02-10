@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // Get user counts for each organization
+    // Get user counts and manager details for each organization
     const orgsWithCounts = await Promise.all(
       (organizations || []).map(async (org) => {
         const { count: userCount } = await supabaseAdmin
@@ -48,10 +48,21 @@ export async function GET(request: NextRequest) {
           .select('*', { count: 'exact', head: true })
           .eq('organization_id', org.id);
 
+        // Get manager details
+        const { data: manager } = await supabaseAdmin
+          .from('users')
+          .select('id, name, phone, role')
+          .eq('organization_id', org.id)
+          .eq('role', 'manager')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+
         return {
           ...org,
           userCount: userCount || 0,
           leadCount: leadCount || 0,
+          manager: manager || null,
         };
       })
     );
@@ -182,6 +193,49 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Error creating organization:', error);
+    return apiResponse.serverError(error.message);
+  }
+}
+
+/**
+ * DELETE - Delete an organization and all its data (Super Admin only)
+ */
+export async function DELETE(request: NextRequest) {
+  const authCheck = requirePermission(request, 'manage_organizations');
+  if (!authCheck.authorized) {
+    return authCheck.response!;
+  }
+
+  const { searchParams } = new URL(request.url);
+  const orgId = searchParams.get('id');
+
+  if (!orgId) {
+    return apiResponse.error('Organization ID is required');
+  }
+
+  try {
+    // Verify organization exists
+    const { data: org, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id, name')
+      .eq('id', orgId)
+      .single();
+
+    if (orgError || !org) {
+      return apiResponse.error('Organization not found');
+    }
+
+    // All child tables have ON DELETE CASCADE, so deleting the org cascades everything
+    const { error: deleteError } = await supabaseAdmin
+      .from('organizations')
+      .delete()
+      .eq('id', orgId);
+
+    if (deleteError) throw deleteError;
+
+    return apiResponse.success(null, `Organization "${org.name}" deleted successfully`);
+  } catch (error: any) {
+    console.error('Error deleting organization:', error);
     return apiResponse.serverError(error.message);
   }
 }
