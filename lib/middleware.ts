@@ -29,7 +29,9 @@ export function getUserFromRequest(request: NextRequest): JWTPayload | null {
   // Fallback to custom headers (backward compatibility)
   const userId = request.headers.get('x-user-id');
   const organizationId = request.headers.get('x-organization-id');
-  const userRole = request.headers.get('x-user-role') as UserRole | null;
+  const rawRole = request.headers.get('x-user-role');
+  // Normalize 'admin' → 'manager' (register page historically used 'admin')
+  const userRole = (rawRole === 'admin' ? 'manager' : rawRole) as UserRole | null;
   const phone = request.headers.get('x-user-phone');
 
   if (userId && organizationId && userRole) {

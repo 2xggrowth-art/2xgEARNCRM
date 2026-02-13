@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       .insert({
         phone,
         name,
-        role: 'admin',
+        role: 'manager',
         organization_id: newOrg.id,
         pin_hash: pinHash,
         last_login: new Date().toISOString(),
