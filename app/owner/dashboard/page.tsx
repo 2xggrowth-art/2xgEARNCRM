@@ -50,7 +50,7 @@ export default function OwnerDashboard() {
       return;
     }
     const parsed = JSON.parse(userData);
-    if (parsed.role !== 'manager' && parsed.role !== 'super_admin') {
+    if (!['manager', 'admin', 'super_admin'].includes(parsed.role)) {
       router.push('/login');
       return;
     }
