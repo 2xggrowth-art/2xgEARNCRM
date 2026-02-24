@@ -492,6 +492,69 @@ export const TEAM_POOL_DISTRIBUTION = {
 export const DEFAULT_MONTHLY_TARGET = 1000000;
 
 // ================================================
+// ORGANIZATION INCENTIVE CONFIG (Per-Org Settings)
+// ================================================
+
+export interface OrganizationIncentiveConfig {
+  id: string;
+  organization_id: string;
+  streak_bonus_7_days: number;
+  streak_bonus_14_days: number;
+  streak_bonus_30_days: number;
+  review_bonus_per_review: number;
+  penalty_late_arrival: number;
+  penalty_unauthorized_absence: number;
+  penalty_back_to_back_offs: number;
+  penalty_low_compliance: number;
+  penalty_high_error_rate: number;
+  penalty_non_escalated_lost_lead: number;
+  penalty_missing_documentation: number;
+  penalty_low_team_eval: number;
+  penalty_client_disrespect: number;
+  compliance_threshold: number;
+  error_rate_threshold: number;
+  team_eval_threshold: number;
+  team_pool_top_performer: number;
+  team_pool_second_performer: number;
+  team_pool_third_performer: number;
+  team_pool_manager: number;
+  team_pool_support_staff: number;
+  team_pool_others: number;
+  default_monthly_target: number;
+  salary_cap_enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Default config built from hardcoded constants (used as fallback)
+export const DEFAULT_INCENTIVE_CONFIG: Omit<OrganizationIncentiveConfig, 'id' | 'organization_id' | 'created_at' | 'updated_at'> = {
+  streak_bonus_7_days: STREAK_BONUSES[7],
+  streak_bonus_14_days: STREAK_BONUSES[14],
+  streak_bonus_30_days: STREAK_BONUSES[30],
+  review_bonus_per_review: 10,
+  penalty_late_arrival: PENALTY_PERCENTAGES.late_arrival,
+  penalty_unauthorized_absence: PENALTY_PERCENTAGES.unauthorized_absence,
+  penalty_back_to_back_offs: PENALTY_PERCENTAGES.back_to_back_offs,
+  penalty_low_compliance: PENALTY_PERCENTAGES.low_compliance,
+  penalty_high_error_rate: PENALTY_PERCENTAGES.high_error_rate,
+  penalty_non_escalated_lost_lead: PENALTY_PERCENTAGES.non_escalated_lost_lead,
+  penalty_missing_documentation: PENALTY_PERCENTAGES.missing_documentation,
+  penalty_low_team_eval: PENALTY_PERCENTAGES.low_team_eval,
+  penalty_client_disrespect: PENALTY_PERCENTAGES.client_disrespect,
+  compliance_threshold: 96,
+  error_rate_threshold: 1,
+  team_eval_threshold: 4.0,
+  team_pool_top_performer: TEAM_POOL_DISTRIBUTION.top_performer,
+  team_pool_second_performer: TEAM_POOL_DISTRIBUTION.second_performer,
+  team_pool_third_performer: TEAM_POOL_DISTRIBUTION.third_performer,
+  team_pool_manager: TEAM_POOL_DISTRIBUTION.manager,
+  team_pool_support_staff: TEAM_POOL_DISTRIBUTION.support_staff,
+  team_pool_others: TEAM_POOL_DISTRIBUTION.others,
+  default_monthly_target: DEFAULT_MONTHLY_TARGET,
+  salary_cap_enabled: true,
+};
+
+// ================================================
 // QR CODE OFFER SYSTEM TYPES (Spin Wheel)
 // ================================================
 

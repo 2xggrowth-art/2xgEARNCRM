@@ -87,15 +87,26 @@ export async function GET(request: NextRequest) {
       disputed_penalties_count: disputedPenalties?.length || 0,
     };
 
-    // Transform data
-    const transformedPending = (pendingIncentives || []).map((i: any) => ({
+    // Transform data - convert NUMERIC strings to numbers
+    const numericFields = ['gross_commission', 'streak_bonus', 'review_bonus', 'total_bonuses', 'penalty_percentage', 'penalty_amount', 'gross_total', 'net_incentive', 'user_monthly_salary', 'capped_amount', 'final_approved_amount'];
+    const toNumbers = (obj: any) => {
+      const result = { ...obj };
+      for (const field of numericFields) {
+        if (result[field] !== null && result[field] !== undefined) {
+          result[field] = Number(result[field]);
+        }
+      }
+      return result;
+    };
+
+    const transformedPending = (pendingIncentives || []).map((i: any) => toNumbers({
       ...i,
       user_name: i.users?.name,
       user_phone: i.users?.phone,
       user_role: i.users?.role,
     }));
 
-    const transformedAll = (allIncentives || []).map((i: any) => ({
+    const transformedAll = (allIncentives || []).map((i: any) => toNumbers({
       ...i,
       user_name: i.users?.name,
       user_phone: i.users?.phone,

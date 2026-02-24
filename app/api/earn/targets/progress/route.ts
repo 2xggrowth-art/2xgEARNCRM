@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { APIResponse, UserRole, DEFAULT_MONTHLY_TARGET } from '@/lib/types';
+import { APIResponse, UserRole } from '@/lib/types';
 import { checkPermission } from '@/lib/permissions';
-import { getCurrentMonth, updateMonthlyTargetProgress } from '@/lib/incentive-calculator';
+import { getCurrentMonth, updateMonthlyTargetProgress, getIncentiveConfig } from '@/lib/incentive-calculator';
 
 /**
  * GET /api/earn/targets/progress
@@ -64,11 +64,14 @@ export async function GET(request: NextRequest) {
       .lt('created_at', endDate)
       .order('created_at', { ascending: false });
 
+    // Fetch org config for dynamic default target
+    const orgConfig = await getIncentiveConfig(organizationId);
+
     // Calculate stats
     const salesCount = sales?.length || 0;
     // Ensure numeric addition (PostgreSQL returns DECIMAL as strings)
     const totalSales = sales?.reduce((sum, s) => sum + Number(s.sale_price || 0), 0) || 0;
-    const targetAmount = target?.target_amount || DEFAULT_MONTHLY_TARGET;
+    const targetAmount = target?.target_amount || orgConfig.default_monthly_target;
     const achievementPercentage = targetAmount > 0 ? (totalSales / targetAmount) * 100 : 0;
     const qualifies = totalSales >= targetAmount;
     const remaining = Math.max(0, targetAmount - totalSales);

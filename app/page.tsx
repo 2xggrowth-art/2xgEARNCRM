@@ -18,7 +18,7 @@ export default function HomePage() {
           router.push('/super-admin/dashboard');
           break;
         case 'manager':
-          router.push('/manager/dashboard');
+          router.push('/admin/dashboard');
           break;
         case 'staff':
           router.push('/staff/dashboard');

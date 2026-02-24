@@ -27,6 +27,7 @@ const poolConfig: PoolConfig = {
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 };
 
 // Singleton pool
@@ -80,6 +81,31 @@ const FK_MAP: Record<string, Record<string, { table: string; pk: string }>> = {
   whatsapp_message_logs: {
     organization_id: { table: 'organizations', pk: 'id' },
     lead_id: { table: 'leads', pk: 'id' },
+    user_id: { table: 'users', pk: 'id' },
+  },
+  monthly_incentives: {
+    user_id: { table: 'users', pk: 'id' },
+    organization_id: { table: 'organizations', pk: 'id' },
+    reviewed_by: { table: 'users', pk: 'id' },
+  },
+  penalties: {
+    user_id: { table: 'users', pk: 'id' },
+    organization_id: { table: 'organizations', pk: 'id' },
+    created_by: { table: 'users', pk: 'id' },
+  },
+  monthly_targets: {
+    user_id: { table: 'users', pk: 'id' },
+    organization_id: { table: 'organizations', pk: 'id' },
+  },
+  commission_rates: {
+    organization_id: { table: 'organizations', pk: 'id' },
+    category_id: { table: 'categories', pk: 'id' },
+  },
+  streaks: {
+    user_id: { table: 'users', pk: 'id' },
+  },
+  team_pool_distributions: {
+    organization_id: { table: 'organizations', pk: 'id' },
     user_id: { table: 'users', pk: 'id' },
   },
 };
@@ -143,7 +169,7 @@ class QueryBuilder {
   }
 
   select(columns?: string, options?: SelectOptions): QueryBuilder {
-    if (this._operation === 'insert' || this._operation === 'update') {
+    if (this._operation === 'insert' || this._operation === 'update' || this._operation === 'upsert') {
       // .insert({}).select() or .update({}).select() — means RETURNING
       this._returning = true;
       if (columns && columns !== '*') {

@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError || !user) {
+      logger.error('Login - user lookup failed:', { phone, userError: userError?.message });
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Invalid phone number or PIN' },
         { status: 401 }

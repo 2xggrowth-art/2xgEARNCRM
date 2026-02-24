@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { APIResponse, UserRole, MonthlyTarget, DEFAULT_MONTHLY_TARGET } from '@/lib/types';
+import { APIResponse, UserRole, MonthlyTarget } from '@/lib/types';
 import { checkPermission } from '@/lib/permissions';
-import { getCurrentMonth, updateMonthlyTargetProgress } from '@/lib/incentive-calculator';
+import { getCurrentMonth, updateMonthlyTargetProgress, getIncentiveConfig } from '@/lib/incentive-calculator';
 
 /**
  * GET /api/earn/targets
@@ -111,11 +111,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch org config for dynamic default target
+    const orgConfig = await getIncentiveConfig(organizationId);
+
     const body = await request.json();
     const {
       user_id: targetUserId,
       month = getCurrentMonth(),
-      target_amount = DEFAULT_MONTHLY_TARGET,
+      target_amount = orgConfig.default_monthly_target,
     } = body;
 
     if (!targetUserId) {

@@ -777,58 +777,43 @@ WITH CHECK (
 -- PART 5: SEED DEFAULT COMMISSION RATES
 -- ================================================
 
--- Note: Run this after creating an organization
--- Default rates based on 2XG Earn spec:
+-- Dynamically creates commission rates from actual categories in the organization.
+-- Electric & Premium Geared: 0.7% with 1.5x premium multiplier
 -- Kids: 1.0%
--- Single Speed, Geared, 2nd Hand, Services: 0.8%
--- Premium/Electric (>50k): 0.7% x 1.5 = 1.05%
+-- All others: 0.8% (default)
+-- Also creates a "Default" fallback rate for any unmatched categories.
 
--- This function seeds default rates for an organization
 CREATE OR REPLACE FUNCTION seed_default_commission_rates(p_organization_id UUID)
 RETURNS void AS $$
 BEGIN
-  -- Kids category: 1.0%
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, 'Kids', 1.0, 1.0, 50000)
+  -- Create a commission rate for each actual category in the org
+  INSERT INTO commission_rates (organization_id, category_name, category_id, commission_percentage, multiplier, premium_threshold)
+  SELECT
+    p_organization_id,
+    c.name,
+    c.id,
+    CASE
+      WHEN c.name IN ('Electric', 'Premium Geared') THEN 0.7
+      WHEN c.name = 'Kids' THEN 1.0
+      ELSE 0.8
+    END,
+    CASE
+      WHEN c.name IN ('Electric', 'Premium Geared') THEN 1.5
+      ELSE 1.0
+    END,
+    50000
+  FROM categories c
+  WHERE c.organization_id = p_organization_id
   ON CONFLICT (organization_id, category_name) DO NOTHING;
 
-  -- Single Speed: 0.8%
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, 'Single Speed', 0.8, 1.0, 50000)
-  ON CONFLICT (organization_id, category_name) DO NOTHING;
-
-  -- Geared: 0.8%
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, 'Geared', 0.8, 1.0, 50000)
-  ON CONFLICT (organization_id, category_name) DO NOTHING;
-
-  -- 2nd Hand: 0.8%
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, '2nd Hand', 0.8, 1.0, 50000)
-  ON CONFLICT (organization_id, category_name) DO NOTHING;
-
-  -- Services: 0.8%
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, 'Services', 0.8, 1.0, 50000)
-  ON CONFLICT (organization_id, category_name) DO NOTHING;
-
-  -- Premium/Electric: 0.7% with 1.5x multiplier for sales >= 50k
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, 'Premium', 0.7, 1.5, 50000)
-  ON CONFLICT (organization_id, category_name) DO NOTHING;
-
-  INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
-  VALUES (p_organization_id, 'Electric', 0.7, 1.5, 50000)
-  ON CONFLICT (organization_id, category_name) DO NOTHING;
-
-  -- Default fallback rate: 0.8%
+  -- Always add a Default fallback rate
   INSERT INTO commission_rates (organization_id, category_name, commission_percentage, multiplier, premium_threshold)
   VALUES (p_organization_id, 'Default', 0.8, 1.0, 50000)
   ON CONFLICT (organization_id, category_name) DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION seed_default_commission_rates IS 'Seed default commission rates for an organization';
+COMMENT ON FUNCTION seed_default_commission_rates IS 'Seed commission rates from actual org categories';
 
 -- ================================================
 -- PART 6: UPDATE TRIGGERS

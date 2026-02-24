@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PenaltyType, PENALTY_PERCENTAGES } from '@/lib/types';
+import { PenaltyType } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +14,33 @@ interface IncentiveSummary {
   total_net: number;
   total_penalties: number;
   disputed_penalties_count: number;
+}
+
+interface PenaltyDetail {
+  id: string;
+  type: string;
+  percentage: number;
+  description: string | null;
+  incident_date: string | null;
+}
+
+interface BreakdownJson {
+  penalties: PenaltyDetail[];
+  summary: {
+    gross_commission: number;
+    streak_bonus: number;
+    review_bonus: number;
+    gross_total: number;
+    total_penalty_percentage: number;
+    penalty_amount: number;
+    net_before_cap: number;
+    salary_cap: number | null;
+    cap_applied: boolean;
+    final_amount: number;
+  };
+  sales?: any[];
+  streak?: any;
+  reviews?: any;
 }
 
 interface TeamIncentive {
@@ -34,6 +61,7 @@ interface TeamIncentive {
   capped_amount: number | null;
   final_approved_amount: number | null;
   status: string;
+  breakdown_json: BreakdownJson | null;
 }
 
 interface DisputedPenalty {
@@ -69,6 +97,7 @@ export default function ManagerIncentivesPage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'penalties' | 'targets'>('pending');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [penaltyRates, setPenaltyRates] = useState<Record<string, number>>({});
 
   // Modal states
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -108,6 +137,7 @@ export default function ManagerIncentivesPage() {
     setUser(parsedUser);
     fetchData();
     fetchTeamMembers();
+    fetchPenaltyRates();
   }, [router, month]);
 
   const fetchData = async () => {
@@ -131,13 +161,47 @@ export default function ManagerIncentivesPage() {
 
   const fetchTeamMembers = async () => {
     try {
-      const res = await fetch('/api/manager/team');
+      const res = await fetch('/api/admin/team');
       const data = await res.json();
+      console.log('Team members API response:', data);
       if (data.success) {
-        setTeamMembers(data.data || []);
+        // Show all org users except managers and super_admins
+        const members = (data.data || []).filter((m: any) => m.role !== 'manager' && m.role !== 'super_admin');
+        console.log('Filtered team members:', members);
+        setTeamMembers(members);
+      } else {
+        console.error('Team members API error:', data.error);
       }
     } catch (error) {
       console.error('Error fetching team:', error);
+    }
+  };
+
+  const fetchPenaltyRates = async () => {
+    try {
+      const res = await fetch('/api/earn/incentive-config');
+      const data = await res.json();
+      if (data.success && data.data) {
+        const d = data.data;
+        setPenaltyRates({
+          late_arrival: Number(d.penalty_late_arrival) || 5,
+          unauthorized_absence: Number(d.penalty_unauthorized_absence) || 10,
+          back_to_back_offs: Number(d.penalty_back_to_back_offs) || 10,
+          low_compliance: Number(d.penalty_low_compliance) || 10,
+          high_error_rate: Number(d.penalty_high_error_rate) || 10,
+          non_escalated_lost_lead: Number(d.penalty_non_escalated_lost_lead) || 10,
+          missing_documentation: Number(d.penalty_missing_documentation) || 10,
+          low_team_eval: Number(d.penalty_low_team_eval) || 15,
+          client_disrespect: Number(d.penalty_client_disrespect) || 100,
+        });
+        // Use org's configured default target for the target form
+        const orgDefaultTarget = Number(d.default_monthly_target);
+        if (orgDefaultTarget > 0) {
+          setTargetForm((prev) => ({ ...prev, target_amount: orgDefaultTarget }));
+        }
+      }
+    } catch {
+      // Use empty - will show without percentages
     }
   };
 
@@ -358,7 +422,7 @@ export default function ManagerIncentivesPage() {
       if (data.success) {
         alert(data.message);
         setShowTargetModal(false);
-        setTargetForm({ user_id: '', target_amount: 1000000 });
+        setTargetForm((prev) => ({ user_id: '', target_amount: prev.target_amount }));
       } else {
         alert('Error: ' + data.error);
       }
@@ -445,7 +509,17 @@ export default function ManagerIncentivesPage() {
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
-              onClick={() => router.push('/manager/dashboard')}
+              onClick={() => router.push('/admin/incentive-config')}
+              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Config
+            </button>
+            <button
+              onClick={() => router.push('/admin/dashboard')}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
             >
               Dashboard
@@ -751,7 +825,7 @@ export default function ManagerIncentivesPage() {
       {/* Approve Modal */}
       {showApproveModal && selectedIncentive && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Review Incentive</h2>
 
             <div className="space-y-3 mb-6">
@@ -759,22 +833,83 @@ export default function ManagerIncentivesPage() {
                 <span className="text-gray-600">Name:</span>
                 <span className="font-medium">{selectedIncentive.user_name}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Commission:</span>
-                <span>{formatCurrency(selectedIncentive.gross_commission)}</span>
+
+              {/* Earnings Section */}
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="text-sm font-semibold text-gray-700 mb-1">Earnings</div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Gross Commission:</span>
+                  <span>{formatCurrency(selectedIncentive.gross_commission)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Streak Bonus:</span>
+                  <span className="text-green-600">+{formatCurrency(selectedIncentive.streak_bonus)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Review Bonus:</span>
+                  <span className="text-green-600">+{formatCurrency(selectedIncentive.review_bonus)}</span>
+                </div>
+                <hr className="border-gray-200" />
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Gross Total:</span>
+                  <span>{formatCurrency(selectedIncentive.gross_commission + selectedIncentive.streak_bonus + selectedIncentive.review_bonus)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Bonuses:</span>
-                <span className="text-green-600">+{formatCurrency(selectedIncentive.total_bonuses)}</span>
+
+              {/* Penalties Section */}
+              <div className="bg-red-50 rounded-lg p-3 space-y-2">
+                <div className="text-sm font-semibold text-red-700 mb-1">
+                  Penalties ({selectedIncentive.penalty_count || 0})
+                </div>
+                {selectedIncentive.breakdown_json?.penalties && selectedIncentive.breakdown_json.penalties.length > 0 ? (
+                  <>
+                    {selectedIncentive.breakdown_json.penalties.map((p, idx) => (
+                      <div key={p.id || idx} className="flex justify-between items-start text-sm border-b border-red-100 pb-1 last:border-0 last:pb-0">
+                        <div className="flex-1">
+                          <span className="text-red-700 font-medium capitalize">{p.type.replace(/_/g, ' ')}</span>
+                          {p.description && (
+                            <div className="text-xs text-red-500 mt-0.5">{p.description}</div>
+                          )}
+                          {p.incident_date && (
+                            <div className="text-xs text-gray-400">Date: {new Date(p.incident_date).toLocaleDateString('en-IN')}</div>
+                          )}
+                        </div>
+                        <span className="text-red-600 font-medium ml-2 whitespace-nowrap">-{p.percentage}%</span>
+                      </div>
+                    ))}
+                    <hr className="border-red-200" />
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-red-700">Total Penalty:</span>
+                      <span className="text-red-600">-{selectedIncentive.penalty_percentage}% = -{formatCurrency(selectedIncentive.penalty_amount)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500">No penalties</div>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Penalties:</span>
-                <span className="text-red-600">-{formatCurrency(selectedIncentive.penalty_amount)}</span>
-              </div>
-              <hr />
-              <div className="flex justify-between font-semibold">
-                <span>Net Incentive:</span>
-                <span>{formatCurrency(selectedIncentive.net_incentive)}</span>
+
+              {/* Final Calculation */}
+              <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+                <div className="text-sm font-semibold text-blue-700 mb-1">Calculation</div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Gross Total:</span>
+                  <span>{formatCurrency(selectedIncentive.gross_commission + selectedIncentive.streak_bonus + selectedIncentive.review_bonus)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Penalties:</span>
+                  <span className="text-red-600">-{formatCurrency(selectedIncentive.penalty_amount)}</span>
+                </div>
+                {selectedIncentive.salary_cap_applied && selectedIncentive.capped_amount != null && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Salary Cap Applied:</span>
+                    <span className="text-orange-600">{formatCurrency(selectedIncentive.capped_amount)}</span>
+                  </div>
+                )}
+                <hr className="border-blue-200" />
+                <div className="flex justify-between font-bold text-base">
+                  <span>Net Incentive:</span>
+                  <span className="text-blue-700">{formatCurrency(selectedIncentive.net_incentive)}</span>
+                </div>
               </div>
             </div>
 
@@ -869,7 +1004,7 @@ export default function ManagerIncentivesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select penalty type</option>
-                  {Object.entries(PENALTY_PERCENTAGES).map(([type, pct]) => (
+                  {Object.entries(penaltyRates).map(([type, pct]) => (
                     <option key={type} value={type}>
                       {type.replace(/_/g, ' ')} (-{pct}%)
                     </option>
@@ -961,7 +1096,7 @@ export default function ManagerIncentivesPage() {
                   min="0"
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">Default: ₹10,00,000 (10 Lakhs)</p>
+                <p className="text-xs text-gray-500 mt-1">Org default: ₹{targetForm.target_amount.toLocaleString('en-IN')} (configurable in Incentive Config)</p>
               </div>
 
               <div className="flex gap-2 pt-4">

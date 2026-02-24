@@ -157,7 +157,7 @@ export function getDefaultDashboard(role: UserRole): string {
     case 'super_admin':
       return '/super-admin/dashboard';
     case 'manager':
-      return '/manager/dashboard';
+      return '/admin/dashboard';
     case 'staff':
       return '/staff/dashboard';
     case 'sales_rep':

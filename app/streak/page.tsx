@@ -22,15 +22,43 @@ interface EarnedMilestone {
   earned: boolean;
 }
 
+interface StreakBonusConfig {
+  7: number;
+  14: number;
+  30: number;
+}
+
 export default function StreakPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [totalEarned, setTotalEarned] = useState(0);
+  const [bonusConfig, setBonusConfig] = useState<StreakBonusConfig>({
+    7: STREAK_BONUSES[7],
+    14: STREAK_BONUSES[14],
+    30: STREAK_BONUSES[30],
+  });
 
   useEffect(() => {
     fetchStreakData();
+    fetchBonusConfig();
   }, []);
+
+  const fetchBonusConfig = async () => {
+    try {
+      const response = await fetch('/api/earn/incentive-config');
+      const data = await response.json();
+      if (data.success && data.data) {
+        setBonusConfig({
+          7: data.data.streak_bonus_7_days ?? STREAK_BONUSES[7],
+          14: data.data.streak_bonus_14_days ?? STREAK_BONUSES[14],
+          30: data.data.streak_bonus_30_days ?? STREAK_BONUSES[30],
+        });
+      }
+    } catch {
+      // Use defaults on error
+    }
+  };
 
   const fetchStreakData = async () => {
     try {
@@ -59,9 +87,9 @@ export default function StreakPage() {
   const getMilestones = (): EarnedMilestone[] => {
     const currentStreak = streakData?.current_streak || 0;
     return [
-      { days: 7, bonus: STREAK_BONUSES[7], earned: currentStreak >= 7 },
-      { days: 14, bonus: STREAK_BONUSES[14], earned: currentStreak >= 14 },
-      { days: 30, bonus: STREAK_BONUSES[30], earned: currentStreak >= 30 },
+      { days: 7, bonus: bonusConfig[7], earned: currentStreak >= 7 },
+      { days: 14, bonus: bonusConfig[14], earned: currentStreak >= 14 },
+      { days: 30, bonus: bonusConfig[30], earned: currentStreak >= 30 },
     ];
   };
 
@@ -71,9 +99,9 @@ export default function StreakPage() {
 
   const getNextMilestone = () => {
     const currentStreak = streakData?.current_streak || 0;
-    if (currentStreak < 7) return { days: 7, bonus: STREAK_BONUSES[7], daysAway: 7 - currentStreak };
-    if (currentStreak < 14) return { days: 14, bonus: STREAK_BONUSES[14], daysAway: 14 - currentStreak };
-    if (currentStreak < 30) return { days: 30, bonus: STREAK_BONUSES[30], daysAway: 30 - currentStreak };
+    if (currentStreak < 7) return { days: 7, bonus: bonusConfig[7], daysAway: 7 - currentStreak };
+    if (currentStreak < 14) return { days: 14, bonus: bonusConfig[14], daysAway: 14 - currentStreak };
+    if (currentStreak < 30) return { days: 30, bonus: bonusConfig[30], daysAway: 30 - currentStreak };
     return null;
   };
 

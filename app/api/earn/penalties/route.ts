@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { APIResponse, UserRole, Penalty, PenaltyType, PENALTY_PERCENTAGES } from '@/lib/types';
+import { APIResponse, UserRole, Penalty, PenaltyType } from '@/lib/types';
 import { checkPermission } from '@/lib/permissions';
-import { calculatePenaltyPercentage, getCurrentMonth } from '@/lib/incentive-calculator';
+import { calculatePenaltyPercentage, getIncentiveConfig, getCurrentMonth } from '@/lib/incentive-calculator';
 
 /**
  * GET /api/earn/penalties
@@ -159,8 +159,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch org config for dynamic penalty rates
+    const orgConfig = await getIncentiveConfig(organizationId);
+
     // Calculate penalty percentage
-    const penaltyPercentage = calculatePenaltyPercentage(penalty_type as PenaltyType, value);
+    const penaltyPercentage = calculatePenaltyPercentage(penalty_type as PenaltyType, value, orgConfig);
 
     if (penaltyPercentage <= 0) {
       return NextResponse.json<APIResponse>(

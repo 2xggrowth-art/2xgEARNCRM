@@ -148,6 +148,91 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PUT /api/earn/commission-rates
+ * Update an existing commission rate (manager+ only)
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const userId = request.headers.get('x-user-id');
+    const userRole = request.headers.get('x-user-role') as UserRole;
+    const organizationId = request.headers.get('x-organization-id');
+
+    if (!userId || !organizationId) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const check = checkPermission(userRole, 'approve_incentives');
+    if (!check.authorized) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: check.error },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, commission_percentage, multiplier, min_sale_price, premium_threshold } = body;
+
+    if (!id) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Rate ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (commission_percentage !== undefined && (commission_percentage < 0 || commission_percentage > 100)) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Commission percentage must be between 0 and 100' },
+        { status: 400 }
+      );
+    }
+
+    if (multiplier !== undefined && (multiplier < 1 || multiplier > 10)) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Multiplier must be between 1 and 10' },
+        { status: 400 }
+      );
+    }
+
+    const updateData: Record<string, any> = {};
+    if (commission_percentage !== undefined) updateData.commission_percentage = commission_percentage;
+    if (multiplier !== undefined) updateData.multiplier = multiplier;
+    if (min_sale_price !== undefined) updateData.min_sale_price = min_sale_price;
+    if (premium_threshold !== undefined) updateData.premium_threshold = premium_threshold;
+
+    const { data: rate, error } = await supabaseAdmin
+      .from('commission_rates')
+      .update(updateData)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating commission rate:', error);
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Failed to update commission rate' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json<APIResponse>({
+      success: true,
+      data: rate,
+      message: 'Commission rate updated',
+    });
+  } catch (error) {
+    console.error('Commission rates PUT error:', error);
+    return NextResponse.json<APIResponse>(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/earn/commission-rates
  * Soft delete a commission rate (manager+ only)
  */

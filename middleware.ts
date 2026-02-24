@@ -23,6 +23,7 @@ const publicRoutes = [
   '/api/offers/lead',
   '/api/offers/spin',
   '/api/offers/settings',
+  '/api/health',
 ];
 
 export async function middleware(request: NextRequest) {

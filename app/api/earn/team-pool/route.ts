@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { APIResponse, UserRole, TEAM_POOL_DISTRIBUTION } from '@/lib/types';
+import { APIResponse, UserRole } from '@/lib/types';
 import { checkPermission } from '@/lib/permissions';
-import { getCurrentMonth, calculateTeamPool } from '@/lib/incentive-calculator';
+import { getCurrentMonth, calculateTeamPool, getIncentiveConfig } from '@/lib/incentive-calculator';
 
 /**
  * GET /api/earn/team-pool
@@ -60,12 +60,23 @@ export async function GET(request: NextRequest) {
         }
       : null;
 
+    // Fetch dynamic distribution rules from org config
+    const orgConfig = await getIncentiveConfig(organizationId);
+    const distributionRules = {
+      top_performer: orgConfig.team_pool_top_performer,
+      second_performer: orgConfig.team_pool_second_performer,
+      third_performer: orgConfig.team_pool_third_performer,
+      manager: orgConfig.team_pool_manager,
+      support_staff: orgConfig.team_pool_support_staff,
+      others: orgConfig.team_pool_others,
+    };
+
     return NextResponse.json<APIResponse>({
       success: true,
       data: {
         month,
         distribution: transformedDistribution,
-        distribution_rules: TEAM_POOL_DISTRIBUTION,
+        distribution_rules: distributionRules,
       },
     });
   } catch (error) {

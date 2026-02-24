@@ -21,9 +21,39 @@ import {
   ReviewBreakdown,
   PenaltyBreakdown,
   IncentiveSummary,
+  OrganizationIncentiveConfig,
+  DEFAULT_INCENTIVE_CONFIG,
   PENALTY_PERCENTAGES,
   STREAK_BONUSES,
 } from './types';
+
+// ================================================
+// INCENTIVE CONFIG (Per-Organization)
+// ================================================
+
+/**
+ * Fetch incentive config for an organization.
+ * Returns DB config if exists, otherwise returns hardcoded defaults.
+ */
+export async function getIncentiveConfig(
+  organizationId: string
+): Promise<Omit<OrganizationIncentiveConfig, 'id' | 'created_at' | 'updated_at'>> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('organization_incentive_config')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .single();
+
+    if (data) {
+      return data;
+    }
+  } catch {
+    // Table might not exist yet or other error - fall through to defaults
+  }
+
+  return { organization_id: organizationId, ...DEFAULT_INCENTIVE_CONFIG };
+}
 
 // ================================================
 // COMMISSION CALCULATION
@@ -64,17 +94,28 @@ export async function calculateSaleCommission(
 
   if (!rates || rates.length === 0) return defaultResult;
 
-  // Find matching rate (category-specific first, then default)
-  let rate = rates.find((r) => r.category_id === categoryId);
+  // Find matching rate: try category_id first, then category_name, then Default fallback
+  let rate = categoryId ? rates.find((r) => r.category_id === categoryId) : undefined;
+  if (!rate && categoryId) {
+    // Look up the category name to match by name as fallback
+    const { data: cat } = await supabaseAdmin
+      .from('categories')
+      .select('name')
+      .eq('id', categoryId)
+      .single();
+    if (cat) {
+      rate = rates.find((r) => r.category_name === cat.name);
+    }
+  }
   if (!rate) {
-    rate = rates.find((r) => r.category_id === null || r.category_name === 'Default');
+    rate = rates.find((r) => r.category_name === 'Default');
   }
   if (!rate) return defaultResult;
 
-  // Check if premium multiplier applies
-  const isPremium = salePrice >= rate.premium_threshold;
-  const multiplier = isPremium ? rate.multiplier : 1.0;
-  const effectiveRate = rate.commission_percentage * multiplier;
+  // Check if premium multiplier applies (convert DB NUMERIC strings to numbers)
+  const isPremium = salePrice >= Number(rate.premium_threshold);
+  const multiplier = isPremium ? Number(rate.multiplier) : 1.0;
+  const effectiveRate = Number(rate.commission_percentage) * multiplier;
   const commissionAmount = salePrice * (effectiveRate / 100);
 
   return {
@@ -117,7 +158,7 @@ export interface StreakResult {
 /**
  * Calculate streak bonus for a user
  */
-export async function calculateStreakBonus(userId: string): Promise<StreakResult> {
+export async function calculateStreakBonus(userId: string, organizationId?: string): Promise<StreakResult> {
   const { data: streak } = await supabaseAdmin
     .from('streaks')
     .select('current_streak')
@@ -130,13 +171,25 @@ export async function calculateStreakBonus(userId: string): Promise<StreakResult
 
   const currentStreak = streak.current_streak;
 
+  // Use org config if available, otherwise hardcoded defaults
+  let bonus7: number = STREAK_BONUSES[7];
+  let bonus14: number = STREAK_BONUSES[14];
+  let bonus30: number = STREAK_BONUSES[30];
+
+  if (organizationId) {
+    const config = await getIncentiveConfig(organizationId);
+    bonus7 = config.streak_bonus_7_days;
+    bonus14 = config.streak_bonus_14_days;
+    bonus30 = config.streak_bonus_30_days;
+  }
+
   // Cumulative bonuses: highest tier only
   if (currentStreak >= 30) {
-    return { current_streak: currentStreak, bonus_tier: '30_days', bonus_amount: STREAK_BONUSES[30] };
+    return { current_streak: currentStreak, bonus_tier: '30_days', bonus_amount: bonus30 };
   } else if (currentStreak >= 14) {
-    return { current_streak: currentStreak, bonus_tier: '14_days', bonus_amount: STREAK_BONUSES[14] };
+    return { current_streak: currentStreak, bonus_tier: '14_days', bonus_amount: bonus14 };
   } else if (currentStreak >= 7) {
-    return { current_streak: currentStreak, bonus_tier: '7_days', bonus_amount: STREAK_BONUSES[7] };
+    return { current_streak: currentStreak, bonus_tier: '7_days', bonus_amount: bonus7 };
   }
 
   return { current_streak: currentStreak, bonus_tier: 'none', bonus_amount: 0 };
@@ -158,7 +211,7 @@ export interface ReviewResult {
  * (meaning the customer has actually submitted a review)
  * Pending or yet_to_review status leads do NOT qualify for review bonus
  */
-export async function calculateReviewBonus(userId: string, month: string): Promise<ReviewResult> {
+export async function calculateReviewBonus(userId: string, month: string, organizationId?: string): Promise<ReviewResult> {
   // Use the same date format as other calculations
   const startDate = `${month}-01`;
   const [yearNum, monthNum] = month.split('-').map(Number);
@@ -182,7 +235,12 @@ export async function calculateReviewBonus(userId: string, month: string): Promi
   }
 
   const reviewCount = count || 0;
-  const bonusPerReview = 10;
+  let bonusPerReview = 10;
+
+  if (organizationId) {
+    const config = await getIncentiveConfig(organizationId);
+    bonusPerReview = config.review_bonus_per_review;
+  }
 
   return {
     reviews_initiated: reviewCount,
@@ -219,13 +277,13 @@ export async function calculatePenalties(userId: string, month: string): Promise
   const penaltyBreakdown: PenaltyBreakdown[] = penalties.map((p) => ({
     id: p.id,
     type: p.penalty_type as PenaltyType,
-    percentage: p.penalty_percentage,
+    percentage: Number(p.penalty_percentage) || 0,
     description: p.description,
     incident_date: p.incident_date,
   }));
 
   const totalPercentage = Math.min(
-    penalties.reduce((sum, p) => sum + p.penalty_percentage, 0),
+    penalties.reduce((sum, p) => sum + Number(p.penalty_percentage), 0),
     100 // Cap at 100%
   );
 
@@ -237,43 +295,63 @@ export async function calculatePenalties(userId: string, month: string): Promise
 }
 
 /**
- * Calculate penalty percentage for specific penalty types
+ * Calculate penalty percentage for specific penalty types.
+ * Accepts optional config for dynamic penalty rates.
  */
 export function calculatePenaltyPercentage(
   penaltyType: PenaltyType,
-  value?: number
+  value?: number,
+  config?: Omit<OrganizationIncentiveConfig, 'id' | 'created_at' | 'updated_at'>
 ): number {
+  // Map penalty type to config field, fallback to hardcoded
+  const getPct = (type: PenaltyType): number => {
+    if (!config) return PENALTY_PERCENTAGES[type];
+    const map: Record<PenaltyType, number> = {
+      late_arrival: config.penalty_late_arrival,
+      unauthorized_absence: config.penalty_unauthorized_absence,
+      back_to_back_offs: config.penalty_back_to_back_offs,
+      low_compliance: config.penalty_low_compliance,
+      high_error_rate: config.penalty_high_error_rate,
+      non_escalated_lost_lead: config.penalty_non_escalated_lost_lead,
+      missing_documentation: config.penalty_missing_documentation,
+      low_team_eval: config.penalty_low_team_eval,
+      client_disrespect: config.penalty_client_disrespect,
+    };
+    return map[type] ?? PENALTY_PERCENTAGES[type];
+  };
+
+  const complianceThreshold = config?.compliance_threshold ?? 96;
+  const errorThreshold = config?.error_rate_threshold ?? 1;
+  const evalThreshold = config?.team_eval_threshold ?? 4.0;
+
   switch (penaltyType) {
     case 'late_arrival':
     case 'unauthorized_absence':
     case 'back_to_back_offs':
     case 'non_escalated_lost_lead':
     case 'missing_documentation':
-      return PENALTY_PERCENTAGES[penaltyType];
+      return getPct(penaltyType);
 
     case 'low_compliance':
-      // (96 - score) × 10%, max 50%
-      if (value !== undefined && value < 96) {
-        return Math.min((96 - value) * 10, 50);
+      if (value !== undefined && value < complianceThreshold) {
+        return Math.min((complianceThreshold - value) * getPct('low_compliance'), 50);
       }
       return 0;
 
     case 'high_error_rate':
-      // (rate - 1) × 10%, max 50%
-      if (value !== undefined && value > 1) {
-        return Math.min((value - 1) * 10, 50);
+      if (value !== undefined && value > errorThreshold) {
+        return Math.min((value - errorThreshold) * getPct('high_error_rate'), 50);
       }
       return 0;
 
     case 'low_team_eval':
-      // (4.0 - score) × 15%
-      if (value !== undefined && value < 4.0) {
-        return (4.0 - value) * 15;
+      if (value !== undefined && value < evalThreshold) {
+        return (evalThreshold - value) * getPct('low_team_eval');
       }
       return 0;
 
     case 'client_disrespect':
-      return 100; // Full forfeiture
+      return getPct('client_disrespect');
 
     default:
       return 0;
@@ -305,18 +383,10 @@ export async function calculateMonthlyIncentive(
   const organizationId = user.organization_id;
   const monthlySalary = user.monthly_salary;
 
-  // Check if user qualifies (met monthly target)
-  const { data: target } = await supabaseAdmin
-    .from('monthly_targets')
-    .select('qualifies_for_incentive, achieved_amount')
-    .eq('user_id', userId)
-    .eq('month', month)
-    .single();
+  // Get org config for default target
+  const orgConfig = await getIncentiveConfig(organizationId);
 
-  const qualifies = target?.qualifies_for_incentive ?? true; // Default to true if no target set
-
-  // Get all qualified sales for the month
-  // Use the same date format as targets/progress API which works correctly
+  // Date range for the month
   const startDate = `${month}-01`;
   const [yearNum, monthNum] = month.split('-').map(Number);
   const nextMonthNum = monthNum === 12 ? 1 : monthNum + 1;
@@ -384,11 +454,11 @@ export async function calculateMonthlyIncentive(
         lead_id: sale.id,
         invoice_no: sale.invoice_no || '',
         customer_name: sale.customer_name,
-        sale_price: sale.sale_price,
+        sale_price: Number(sale.sale_price) || 0,
         category_name: categoryMap.get(sale.category_id) || 'Unknown',
-        commission_rate: commissionRate || 0.8,
-        multiplier_applied: (commissionRate || 0) > 1.0,
-        commission_amount: commissionAmount || 0,
+        commission_rate: Number(commissionRate) || 0.8,
+        multiplier_applied: (Number(commissionRate) || 0) > 1.0,
+        commission_amount: Number(commissionAmount) || 0,
         review_qualified: isReviewQualified,  // Based on review_status, not the old review_qualified field
         created_at: sale.created_at,
       };
@@ -401,8 +471,29 @@ export async function calculateMonthlyIncentive(
     .filter((s) => s.review_qualified === true)  // Only reviewed leads qualify
     .reduce((sum, s) => sum + s.commission_amount, 0);
 
+  // Calculate total sales achieved this month
+  const totalSalesAchieved = validSales.reduce((sum, s: any) => sum + Number(s.sale_price || 0), 0);
+
+  // Check if user qualifies (met monthly target)
+  const { data: target } = await supabaseAdmin
+    .from('monthly_targets')
+    .select('target_amount, qualifies_for_incentive, achieved_amount')
+    .eq('user_id', userId)
+    .eq('month', month)
+    .maybeSingle();
+
+  // Use target from DB if set, otherwise use org default target
+  const targetAmount = Number(target?.target_amount) || Number(orgConfig.default_monthly_target) || 0;
+  // Qualify only if achieved sales >= target amount
+  const qualifies = targetAmount > 0 ? totalSalesAchieved >= targetAmount : true;
+
+  console.log('Target qualification check:', {
+    userId, month, totalSalesAchieved, targetAmount, qualifies,
+    hasTargetRecord: !!target,
+  });
+
   // Calculate streak bonus
-  const streakResult = await calculateStreakBonus(userId);
+  const streakResult = await calculateStreakBonus(userId, organizationId);
   const streakBreakdown: StreakBreakdown = {
     current_streak: streakResult.current_streak,
     bonus_tier: streakResult.bonus_tier,
@@ -410,7 +501,7 @@ export async function calculateMonthlyIncentive(
   };
 
   // Calculate review bonus
-  const reviewResult = await calculateReviewBonus(userId, month);
+  const reviewResult = await calculateReviewBonus(userId, month, organizationId);
   const reviewBreakdown: ReviewBreakdown = {
     reviews_initiated: reviewResult.reviews_initiated,
     bonus_per_review: reviewResult.bonus_per_review,
@@ -425,10 +516,10 @@ export async function calculateMonthlyIncentive(
   const penaltyAmount = grossTotal * (penaltyResult.total_percentage / 100);
   const netBeforeCap = qualifies ? grossTotal - penaltyAmount : 0;
 
-  // Apply salary cap
+  // Apply salary cap (use org config)
   let finalAmount = netBeforeCap;
   let capApplied = false;
-  if (monthlySalary && netBeforeCap > monthlySalary) {
+  if (orgConfig.salary_cap_enabled && monthlySalary && netBeforeCap > monthlySalary) {
     finalAmount = monthlySalary;
     capApplied = true;
   }
@@ -574,13 +665,13 @@ export async function calculateTeamPool(
     const userId = sale.sales_rep_id;
     const existing = salesByUser.get(userId);
     if (existing) {
-      existing.total += sale.sale_price || 0;
+      existing.total += Number(sale.sale_price) || 0;
     } else {
       salesByUser.set(userId, {
         name: sale.users?.name || 'Unknown',
         role: sale.users?.role || 'sales_rep',
         staff_type: sale.users?.staff_type || 'sales',
-        total: sale.sale_price || 0,
+        total: Number(sale.sale_price) || 0,
       });
     }
   });
@@ -590,9 +681,16 @@ export async function calculateTeamPool(
     .filter(([_, data]) => data.staff_type === 'sales')
     .sort((a, b) => b[1].total - a[1].total);
 
+  // Fetch org config for pool distribution percentages
+  const orgConfig = await getIncentiveConfig(organizationId);
+  const poolPcts = [
+    orgConfig.team_pool_top_performer,
+    orgConfig.team_pool_second_performer,
+    orgConfig.team_pool_third_performer,
+  ];
+
   // Calculate distribution
   const performers: TeamPoolResult['performers'] = [];
-  const percentages = [20, 12, 8]; // Top 3 performers
 
   sortedUsers.slice(0, 3).forEach(([userId, data], index) => {
     performers.push({
@@ -600,12 +698,13 @@ export async function calculateTeamPool(
       user_id: userId,
       user_name: data.name,
       total_sales: data.total,
-      percentage: percentages[index],
-      amount: totalPoolAmount * (percentages[index] / 100),
+      percentage: poolPcts[index],
+      amount: totalPoolAmount * (poolPcts[index] / 100),
     });
   });
 
   // Find manager
+  const managerPct = orgConfig.team_pool_manager;
   const managerEntry = Array.from(salesByUser.entries()).find(
     ([_, data]) => data.role === 'manager' || data.staff_type === 'manager'
   );
@@ -613,16 +712,17 @@ export async function calculateTeamPool(
     ? {
         user_id: managerEntry[0],
         user_name: managerEntry[1].name,
-        percentage: 20,
-        amount: totalPoolAmount * 0.2,
+        percentage: managerPct,
+        amount: totalPoolAmount * (managerPct / 100),
       }
     : null;
 
-  // Support staff (20% split equally)
+  // Support staff split equally
+  const supportPct = orgConfig.team_pool_support_staff;
   const supportEntries = Array.from(salesByUser.entries()).filter(
     ([_, data]) => data.staff_type === 'support'
   );
-  const supportAmount = totalPoolAmount * 0.2;
+  const supportAmount = totalPoolAmount * (supportPct / 100);
   const supportShare = supportEntries.length > 0 ? supportAmount / supportEntries.length : 0;
   const support_staff = supportEntries.map(([userId, data]) => ({
     user_id: userId,
@@ -631,9 +731,10 @@ export async function calculateTeamPool(
     amount: supportShare,
   }));
 
-  // Others (remaining sales reps not in top 3, 20% split equally)
+  // Others (remaining sales reps not in top 3, split equally)
+  const othersPct = orgConfig.team_pool_others;
   const otherEntries = sortedUsers.slice(3);
-  const othersAmount = totalPoolAmount * 0.2;
+  const othersAmount = totalPoolAmount * (othersPct / 100);
   const othersShare = otherEntries.length > 0 ? othersAmount / otherEntries.length : 0;
   const others = otherEntries.map(([userId, data]) => ({
     user_id: userId,
@@ -690,7 +791,7 @@ export async function updateMonthlyTargetProgress(
     .gte('created_at', `${month}-01`)
     .lt('created_at', getNextMonth(month));
 
-  const totalSales = (salesSum || []).reduce((sum, s) => sum + (s.sale_price || 0), 0);
+  const totalSales = (salesSum || []).reduce((sum, s) => sum + Number(s.sale_price || 0), 0);
 
   // Upsert monthly target
   await supabaseAdmin.from('monthly_targets').upsert(
